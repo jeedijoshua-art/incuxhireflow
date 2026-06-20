@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/favicon.svg" alt="HireFlow Logo" width="120" />
+  <img src="public/favicon.png" alt="HireFlow Logo" width="120" />
   <h1>HireFlow</h1>
   <p><strong>AI-Powered Mock Interview & Resume Intelligence Platform</strong></p>
 </div>
@@ -31,7 +31,7 @@ Make sure you have Node.js installed (v18+ recommended).
 1. Clone the repository:
    ```bash
    git clone https://github.com/jeedijoshua-art/incuxhireflow.git
-   cd incuxhireflow
+   cd interview
    ```
 
 2. Install the dependencies:
