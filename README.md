@@ -69,6 +69,43 @@ The intelligence behind HireFlow is powered by our dedicated developers:
 - **Vishnu** – AI Model Trainer (Facial Expression & Performance)
 - **Charan** – AI Model Trainer (Resume Analyzer)
 
+## 🏛 Project Architecture
+
+HireFlow operates on a modular architecture divided into specific focus areas:
+- **Frontend**: The user interface and experience (React, Vite, Tailwind).
+- **Backend (Micro-services)**:
+  - **Resume Analyzer**: Parses resumes and extracts skills for targeted questions.
+  - **Interview Engine**: Manages interview flow, dynamic question generation, and STT.
+  - **Expression Tracker**: Handles facial analysis, eye contact tracking, and emotion recognition.
+  - **API**: The bridge connecting the frontend to all backend AI modules.
+
+## 👑 Team Ownership
+
+To maintain a clean and scalable codebase, each major module is strictly owned by specific team members:
+- **Joshua**: `frontend/`, `docs/` (Product Management & UI/UX)
+- **Charan**: `backend/resume-analyzer/`, `backend/interview-engine/` (AI Engineering)
+- **Vishnu**: `backend/expression-tracker/` (Computer Vision Engineering)
+- **Shared**: `backend/api/`
+
+## 📁 Folder Responsibilities
+
+Please respect the workspace structure:
+- **`/frontend`**: Contains all UI components, pages, and React logic.
+- **`/backend/resume-analyzer`**: Resume intelligence logic.
+- **`/backend/interview-engine`**: Voice-based interview intelligence.
+- **`/backend/expression-tracker`**: Computer vision and camera processing logic.
+- **`/backend/api`**: FastAPI/REST endpoints connecting modules.
+- **`/docs`**: Team documentation, sprint notes, and architecture diagrams.
+
+*Note: Look inside each module for its specific `OWNER.md` file detailing expected files and rules.*
+
+## 🤝 Contribution Guidelines
+
+1. **Check Ownership**: Before modifying a backend module, check its `OWNER.md` file. Ensure you have permission or are coordinating with the owner.
+2. **Module Isolation**: Do not bleed logic between modules. If the Interview Engine needs Expression data, route it through the API.
+3. **Frontend Rules**: All UI changes must go through Joshua. Do not modify the `frontend/` directory if you are working on a backend AI module.
+4. **Documentation**: Keep the `docs/` folder updated with meeting notes, sprint progress, and any new API definitions.
+
 ## 📄 License
 
 © 2026 HireFlow. All Rights Reserved.
