@@ -81,7 +81,7 @@ export default function PracticePage() {
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="bg-[rgba(10,15,25,0.72)] backdrop-blur-[20px] border border-[rgba(45,212,191,0.08)] rounded-2xl p-8 md:p-12 shadow-[0_0_15px_rgba(45,212,191,0.05)] relative overflow-hidden"
+          className="bg-[rgba(10,15,25,0.72)] backdrop-blur-md border border-[rgba(45,212,191,0.08)] rounded-2xl p-8 md:p-12 shadow-[0_0_15px_rgba(45,212,191,0.05)] relative overflow-hidden"
         >
           <div className="absolute top-0 left-1/4 w-[300px] h-[300px] rounded-full bg-teal-600/[0.03] blur-[100px] pointer-events-none" />
           

@@ -70,7 +70,7 @@ export default function ProcessingPage() {
                 key={step.label}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: isPending ? 0.4 : 1, x: 0 }}
-                className={`flex items-center gap-4 p-4 rounded-xl border transition-colors ${isCurrent ? "bg-[rgba(10,15,25,0.72)] backdrop-blur-[20px] border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)]" : "bg-transparent border-transparent"}`}
+                className={`flex items-center gap-4 p-4 rounded-xl border transition-colors ${isCurrent ? "bg-[rgba(10,15,25,0.72)] backdrop-blur-md border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)]" : "bg-transparent border-transparent"}`}
               >
                 <div className="w-6 h-6 flex items-center justify-center shrink-0">
                   {isCompleted ? (

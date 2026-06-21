@@ -20,7 +20,10 @@ export class FlowField {
   }
 
   private init() {
-    const count = this.width < 768 ? 50 : 100;
+    let count = 30;
+    if (this.width >= 1024) count = 75;
+    else if (this.width >= 768) count = 60;
+    
     for (let i = 0; i < count; i++) {
       this.particles.push({
         x: Math.random() * this.width,

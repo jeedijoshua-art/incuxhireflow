@@ -9,7 +9,7 @@ export default function AppLayout() {
   return (
     <div className="h-screen w-full bg-transparent text-zinc-900 dark:text-zinc-100 flex overflow-hidden">
       {/* Sidebar */}
-      <div className="w-64 border-r border-zinc-200 dark:border-[rgba(45,212,191,0.08)] bg-white/50 dark:bg-[rgba(8,12,20,0.55)] backdrop-blur-[24px] flex flex-col z-20">
+      <div className="w-64 border-r border-zinc-200 dark:border-[rgba(45,212,191,0.08)] bg-white/50 dark:bg-[rgba(8,12,20,0.55)] backdrop-blur-md flex flex-col z-20">
         <div className="p-6 flex items-center gap-2.5">
           <img src="/favicon.png" alt="HireFlow Logo" className="w-8 h-8 rounded-lg" />
           <span className="text-zinc-900 dark:text-zinc-100 font-bold tracking-tight">

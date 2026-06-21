@@ -118,7 +118,7 @@ export default function IntelligenceBackground() {
         }} 
       />
       
-      {/* Flowing Aurora/Plasma Background Layers */}
+      {/* Flowing Aurora/Plasma Background Layers (Optimized) */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div 
           animate={{ 
@@ -128,7 +128,8 @@ export default function IntelligenceBackground() {
             opacity: [0.15, 0.25, 0.15]
           }}
           transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute -top-[20%] -left-[10%] w-[70vw] h-[70vw] rounded-full bg-teal-900/20 blur-[120px]" 
+          className="absolute -top-[20%] -left-[10%] w-[70vw] h-[70vw] rounded-full"
+          style={{ background: 'radial-gradient(circle at center, rgba(13, 148, 136, 0.25) 0%, transparent 60%)' }}
         />
         <motion.div 
           animate={{ 
@@ -138,7 +139,8 @@ export default function IntelligenceBackground() {
             opacity: [0.1, 0.2, 0.1]
           }}
           transition={{ duration: 25, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-          className="absolute top-[10%] -right-[20%] w-[60vw] h-[60vw] rounded-full bg-cyan-900/20 blur-[100px]" 
+          className="absolute top-[10%] -right-[20%] w-[60vw] h-[60vw] rounded-full"
+          style={{ background: 'radial-gradient(circle at center, rgba(8, 145, 178, 0.25) 0%, transparent 60%)' }}
         />
         <motion.div 
           animate={{ 
@@ -148,7 +150,8 @@ export default function IntelligenceBackground() {
             opacity: [0.1, 0.2, 0.1]
           }}
           transition={{ duration: 30, repeat: Infinity, ease: "easeInOut", delay: 5 }}
-          className="absolute -bottom-[20%] left-[20%] w-[80vw] h-[80vw] rounded-full bg-blue-900/10 blur-[150px]" 
+          className="absolute -bottom-[20%] left-[20%] w-[80vw] h-[80vw] rounded-full"
+          style={{ background: 'radial-gradient(circle at center, rgba(30, 58, 138, 0.15) 0%, transparent 60%)' }}
         />
       </div>
       

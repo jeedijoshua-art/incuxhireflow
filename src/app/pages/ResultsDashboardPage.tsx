@@ -31,7 +31,7 @@ export default function ResultsDashboardPage() {
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="lg:col-span-1 bg-white dark:bg-[rgba(10,15,25,0.72)] backdrop-blur-[20px] border border-zinc-200 dark:border-[rgba(45,212,191,0.08)] rounded-2xl p-8 flex flex-col items-center justify-center text-center shadow-sm dark:shadow-[0_0_15px_rgba(45,212,191,0.05)]">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="lg:col-span-1 bg-white dark:bg-[rgba(10,15,25,0.72)] backdrop-blur-md border border-zinc-200 dark:border-[rgba(45,212,191,0.08)] rounded-2xl p-8 flex flex-col items-center justify-center text-center shadow-sm dark:shadow-[0_0_15px_rgba(45,212,191,0.05)]">
           <div className="relative w-40 h-40 mb-6">
             <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
               <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" />
@@ -52,7 +52,7 @@ export default function ResultsDashboardPage() {
           <p className="text-zinc-600 dark:text-zinc-400 text-sm">You are highly prepared for this role. Your communication and confidence were outstanding.</p>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="lg:col-span-2 bg-white dark:bg-[rgba(10,15,25,0.72)] backdrop-blur-[20px] border border-zinc-200 dark:border-[rgba(45,212,191,0.08)] rounded-2xl p-8 shadow-sm dark:shadow-[0_0_15px_rgba(45,212,191,0.05)]">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="lg:col-span-2 bg-white dark:bg-[rgba(10,15,25,0.72)] backdrop-blur-md border border-zinc-200 dark:border-[rgba(45,212,191,0.08)] rounded-2xl p-8 shadow-sm dark:shadow-[0_0_15px_rgba(45,212,191,0.05)]">
           <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-6">Performance Breakdown</h3>
           <div className="space-y-6">
             {[

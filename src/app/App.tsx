@@ -1,20 +1,29 @@
+import React, { Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
-import LandingPage from "./pages/LandingPage.tsx";
-import LoginPage from "./pages/LoginPage.tsx";
-import PracticePage from "./pages/PracticePage.tsx";
-import UserDashboardPage from "./pages/UserDashboardPage.tsx";
-import LiveInterviewPage from "./pages/LiveInterviewPage.tsx";
-import ProcessingPage from "./pages/ProcessingPage.tsx";
-import ResultsDashboardPage from "./pages/ResultsDashboardPage.tsx";
-import AdminLoginPage from "./pages/AdminLoginPage.tsx";
-import AdminDashboardPage from "./pages/AdminDashboardPage.tsx";
+const LandingPage = React.lazy(() => import("./pages/LandingPage.tsx"));
+const LoginPage = React.lazy(() => import("./pages/LoginPage.tsx"));
+const PracticePage = React.lazy(() => import("./pages/PracticePage.tsx"));
+const UserDashboardPage = React.lazy(() => import("./pages/UserDashboardPage.tsx"));
+const LiveInterviewPage = React.lazy(() => import("./pages/LiveInterviewPage.tsx"));
+const ProcessingPage = React.lazy(() => import("./pages/ProcessingPage.tsx"));
+const ResultsDashboardPage = React.lazy(() => import("./pages/ResultsDashboardPage.tsx"));
+const AdminLoginPage = React.lazy(() => import("./pages/AdminLoginPage.tsx"));
+const AdminDashboardPage = React.lazy(() => import("./pages/AdminDashboardPage.tsx"));
 import AppLayout from "./components/layout/AppLayout.tsx";
 import BackgroundProvider from "../components/background/BackgroundProvider.tsx";
 
 export default function App() {
   return (
     <BackgroundProvider>
-      <Routes>
+      <Suspense fallback={
+        <div className="h-screen w-full flex items-center justify-center bg-[#030712]">
+          <div className="animate-pulse flex flex-col items-center gap-4">
+            <div className="w-8 h-8 rounded-full border-t-2 border-teal-500 animate-spin" />
+            <span className="text-sm font-medium tracking-widest text-teal-500/50">INITIALIZING AI MODULES...</span>
+          </div>
+        </div>
+      }>
+        <Routes>
       {/* Public / Marketing */}
       <Route path="/" element={<LandingPage />} />
       <Route path="/practice" element={<PracticePage />} />
@@ -33,7 +42,8 @@ export default function App() {
         <Route path="/dashboard" element={<UserDashboardPage />} />
         <Route path="/results" element={<ResultsDashboardPage />} />
       </Route>
-      </Routes>
+        </Routes>
+      </Suspense>
     </BackgroundProvider>
   );
 }

@@ -41,7 +41,7 @@ export default function UserDashboardPage() {
       </motion.div>
 
       <div className="space-y-8">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white dark:bg-[rgba(10,15,25,0.72)] backdrop-blur-[20px] border border-zinc-200 dark:border-[rgba(45,212,191,0.08)] rounded-xl p-6 shadow-sm dark:shadow-[0_0_15px_rgba(45,212,191,0.05)]">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white dark:bg-[rgba(10,15,25,0.72)] backdrop-blur-md border border-zinc-200 dark:border-[rgba(45,212,191,0.08)] rounded-xl p-6 shadow-sm dark:shadow-[0_0_15px_rgba(45,212,191,0.05)]">
           <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-4">1. Resume Upload</h2>
           {!file ? (
             <div 
@@ -78,7 +78,7 @@ export default function UserDashboardPage() {
           )}
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white dark:bg-[rgba(10,15,25,0.72)] backdrop-blur-[20px] border border-zinc-200 dark:border-[rgba(45,212,191,0.08)] rounded-xl p-6 shadow-sm dark:shadow-[0_0_15px_rgba(45,212,191,0.05)]">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white dark:bg-[rgba(10,15,25,0.72)] backdrop-blur-md border border-zinc-200 dark:border-[rgba(45,212,191,0.08)] rounded-xl p-6 shadow-sm dark:shadow-[0_0_15px_rgba(45,212,191,0.05)]">
           <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-4">2. Interview Configuration</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>

@@ -32,7 +32,7 @@ export default function AdminDashboardPage() {
           { label: "Average Score", value: "76/100", icon: CheckCircle, color: "text-cyan-400" },
           { label: "Active Sessions", value: "32", icon: Clock, color: "text-emerald-400" },
         ].map((stat, i) => (
-          <motion.div key={stat.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }} className="p-5 bg-[rgba(10,15,25,0.72)] backdrop-blur-[20px] border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-xl text-left">
+          <motion.div key={stat.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }} className="p-5 bg-[rgba(10,15,25,0.72)] backdrop-blur-md border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-xl text-left">
             <div className="flex items-center justify-between mb-4">
               <div className="text-sm font-medium text-zinc-400">{stat.label}</div>
               <stat.icon className={`w-5 h-5 ${stat.color}`} />
@@ -43,7 +43,7 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="bg-[rgba(10,15,25,0.72)] backdrop-blur-[20px] border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-xl p-6">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="bg-[rgba(10,15,25,0.72)] backdrop-blur-md border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-xl p-6">
           <h2 className="text-lg font-bold text-zinc-100 mb-4">Recent Users</h2>
           <div className="space-y-4">
             {["Alex Rivera", "Sarah Chen", "Michael Scott"].map((user, idx) => (
@@ -55,7 +55,7 @@ export default function AdminDashboardPage() {
           </div>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="bg-[rgba(10,15,25,0.72)] backdrop-blur-[20px] border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-xl p-6">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="bg-[rgba(10,15,25,0.72)] backdrop-blur-md border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-xl p-6">
           <h2 className="text-lg font-bold text-zinc-100 mb-4">Recent Interviews</h2>
           <div className="space-y-4">
             {["Frontend Developer - 89/100", "Product Manager - 92/100", "Data Analyst - 74/100"].map((interview, idx) => (

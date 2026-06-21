@@ -62,7 +62,7 @@ function Navigation({ activeSection }: { activeSection: string }) {
     <nav
       className={`fixed top-0 left-0 right-0 z-50 h-[80px] flex items-center transition-all duration-300 ${
         scrolled
-          ? "backdrop-blur-[24px] bg-[rgba(8,12,20,0.65)] border-b border-[rgba(45,212,191,0.08)] shadow-xl"
+          ? "backdrop-blur-md bg-[rgba(8,12,20,0.65)] border-b border-[rgba(45,212,191,0.08)] shadow-xl"
           : "bg-transparent"
       }`}
     >
@@ -138,7 +138,7 @@ function InteractiveInterviewDemo() {
       <div className="absolute -inset-6 bg-teal-500/10 rounded-3xl blur-3xl" />
       <div className="absolute -inset-3 bg-violet-500/5 rounded-2xl blur-2xl" />
 
-      <div className="relative bg-[rgba(10,15,25,0.72)] border border-[rgba(45,212,191,0.08)] rounded-2xl p-5 shadow-[0_0_15px_rgba(45,212,191,0.05)] backdrop-blur-[20px] overflow-hidden">
+      <div className="relative bg-[rgba(10,15,25,0.72)] border border-[rgba(45,212,191,0.08)] rounded-2xl p-5 shadow-[0_0_15px_rgba(45,212,191,0.05)] backdrop-blur-md overflow-hidden">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <span className="relative flex h-2 w-2">
@@ -332,7 +332,7 @@ function AboutSection() {
             <FadeUp key={idx} delay={0.1 * idx}>
               <motion.div 
                 whileHover={{ y: -8, transition: { duration: 0.2 } }}
-                className="bg-[rgba(10,15,25,0.72)] border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-2xl p-8 h-full backdrop-blur-[20px] transition-colors hover:bg-zinc-900/80 hover:border-teal-500/30 group"
+                className="bg-[rgba(10,15,25,0.72)] border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-2xl p-8 h-full backdrop-blur-md transition-colors hover:bg-zinc-900/80 hover:border-teal-500/30 group"
               >
                 <div className="w-12 h-12 rounded-xl bg-zinc-950 flex items-center justify-center border border-white/[0.04] mb-6 group-hover:scale-110 transition-transform duration-300">
                   {feature.icon}
@@ -374,7 +374,7 @@ function DevelopersSection() {
             <FadeUp key={idx} delay={0.1 * idx} className="w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] max-w-sm">
               <motion.div 
                 whileHover={{ y: -8, scale: 1.02 }}
-                className="bg-[rgba(10,15,25,0.72)] border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-2xl p-6 backdrop-blur-[20px] flex flex-col items-center text-center h-full hover:border-cyan-500/30 transition-all duration-300 hover:shadow-cyan-500/10"
+                className="bg-[rgba(10,15,25,0.72)] border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-2xl p-6 backdrop-blur-md flex flex-col items-center text-center h-full hover:border-cyan-500/30 transition-all duration-300 hover:shadow-cyan-500/10"
               >
                 <div className="w-20 h-20 rounded-full bg-zinc-800 border-2 border-white/[0.1] mb-5 overflow-hidden flex items-center justify-center relative">
                   <div className="absolute inset-0 bg-gradient-to-tr from-teal-500/20 to-cyan-500/20" />
@@ -389,7 +389,7 @@ function DevelopersSection() {
 
         {/* Developer CTA */}
         <FadeUp delay={0.4}>
-          <div className="mt-20 text-center max-w-2xl mx-auto bg-[rgba(10,15,25,0.72)] border border-[rgba(45,212,191,0.08)] rounded-3xl p-8 backdrop-blur-[20px] shadow-[0_0_15px_rgba(45,212,191,0.05)]">
+          <div className="mt-20 text-center max-w-2xl mx-auto bg-[rgba(10,15,25,0.72)] border border-[rgba(45,212,191,0.08)] rounded-3xl p-8 backdrop-blur-md shadow-[0_0_15px_rgba(45,212,191,0.05)]">
             <h3 className="text-2xl font-bold text-zinc-100 mb-3">Want To Know More About The Developers?</h3>
             <p className="text-zinc-400 mb-8">
               Explore our developer portfolio and learn more about the team behind HireFlow.
@@ -450,7 +450,7 @@ function FaqSection() {
         <div className="space-y-4">
           {faqs.map((faq, idx) => (
             <FadeUp key={idx} delay={0.1 * idx}>
-              <div className="bg-[rgba(10,15,25,0.72)] border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-2xl overflow-hidden backdrop-blur-[20px] transition-colors hover:bg-zinc-900/60">
+              <div className="bg-[rgba(10,15,25,0.72)] border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-2xl overflow-hidden backdrop-blur-md transition-colors hover:bg-zinc-900/60">
                 <button
                   onClick={() => setOpenIndex(openIndex === idx ? null : idx)}
                   className="w-full flex items-center justify-between p-6 text-left focus:outline-none"
@@ -498,7 +498,7 @@ function ContactSection() {
         </FadeUp>
 
         <FadeUp delay={0.2}>
-          <div className="bg-[rgba(10,15,25,0.72)] border border-[rgba(45,212,191,0.08)] rounded-3xl p-8 md:p-12 backdrop-blur-[20px] shadow-[0_0_15px_rgba(45,212,191,0.05)] flex flex-col md:flex-row items-center justify-between gap-10">
+          <div className="bg-[rgba(10,15,25,0.72)] border border-[rgba(45,212,191,0.08)] rounded-3xl p-8 md:p-12 backdrop-blur-md shadow-[0_0_15px_rgba(45,212,191,0.05)] flex flex-col md:flex-row items-center justify-between gap-10">
             <div className="space-y-6 w-full md:w-auto">
               <div className="flex items-center gap-4 text-zinc-300">
                 <div className="w-12 h-12 rounded-full bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
