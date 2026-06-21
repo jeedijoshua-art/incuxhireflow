@@ -35,31 +35,31 @@ export default function UserDashboardPage() {
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
         <div className="flex items-center gap-2.5 mb-2">
           <img src="/favicon.png" alt="HireFlow Logo" className="w-8 h-8 rounded-lg" />
-          <h1 className="text-3xl font-bold text-zinc-100 tracking-tight">HireFlow</h1>
+          <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">HireFlow</h1>
         </div>
-        <p className="text-zinc-400">Configure your AI mock interview session.</p>
+        <p className="text-zinc-600 dark:text-zinc-400">Configure your AI mock interview session.</p>
       </motion.div>
 
       <div className="space-y-8">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-zinc-900 border border-white/[0.06] rounded-xl p-6">
-          <h2 className="text-lg font-bold text-zinc-100 mb-4">1. Resume Upload</h2>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white dark:bg-[rgba(10,15,25,0.72)] backdrop-blur-[20px] border border-zinc-200 dark:border-[rgba(45,212,191,0.08)] rounded-xl p-6 shadow-sm dark:shadow-[0_0_15px_rgba(45,212,191,0.05)]">
+          <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-4">1. Resume Upload</h2>
           {!file ? (
             <div 
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               className={`border-2 border-dashed rounded-xl p-10 text-center transition-colors ${
-                isDragging ? "border-teal-500 bg-teal-500/5" : "border-white/[0.06] bg-zinc-900/50"
+                isDragging ? "border-teal-500 bg-teal-500/5" : "border-zinc-300 bg-zinc-50 dark:border-white/[0.06] dark:bg-zinc-900/50"
               }`}
             >
-              <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mx-auto mb-4">
                 <UploadCloud className="w-8 h-8 text-zinc-400" />
               </div>
-              <h3 className="text-zinc-100 font-medium mb-1">Drag and drop your resume</h3>
+              <h3 className="text-zinc-900 dark:text-zinc-100 font-medium mb-1">Drag and drop your resume</h3>
               <p className="text-zinc-500 text-sm mb-4">PDF or DOCX up to 10MB</p>
               <button 
                 onClick={() => setFile(new window.File([""], "Alex_Rivera_Resume.pdf", { type: "application/pdf" }))}
-                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-lg text-sm transition-colors"
+                className="px-4 py-2 bg-zinc-900 dark:bg-zinc-800 hover:bg-zinc-800 dark:hover:bg-zinc-700 text-white dark:text-zinc-100 rounded-lg text-sm transition-colors"
               >
                 Browse Files
               </button>
@@ -70,24 +70,24 @@ export default function UserDashboardPage() {
                 <FileIcon className="w-5 h-5 text-teal-400" />
               </div>
               <div className="flex-1">
-                <div className="font-medium text-zinc-100">{file.name}</div>
-                <div className="text-xs text-teal-400">Ready for analysis</div>
+                <div className="font-medium text-zinc-900 dark:text-zinc-100">{file.name}</div>
+                <div className="text-xs text-teal-600 dark:text-teal-400">Ready for analysis</div>
               </div>
               <button onClick={() => setFile(null)} className="text-sm text-zinc-400 hover:text-white">Remove</button>
             </div>
           )}
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-zinc-900 border border-white/[0.06] rounded-xl p-6">
-          <h2 className="text-lg font-bold text-zinc-100 mb-4">2. Interview Configuration</h2>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white dark:bg-[rgba(10,15,25,0.72)] backdrop-blur-[20px] border border-zinc-200 dark:border-[rgba(45,212,191,0.08)] rounded-xl p-6 shadow-sm dark:shadow-[0_0_15px_rgba(45,212,191,0.05)]">
+          <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-4">2. Interview Configuration</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">Target Job Role</label>
-              <input type="text" placeholder="e.g. Frontend Developer" className="w-full bg-zinc-950 border border-white/[0.06] rounded-xl px-4 py-3 text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-teal-500/50" />
+              <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">Target Job Role</label>
+              <input type="text" placeholder="e.g. Frontend Developer" className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/[0.06] rounded-xl px-4 py-3 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-teal-500/50" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">Experience Level</label>
-              <select className="w-full bg-zinc-950 border border-white/[0.06] rounded-xl px-4 py-3 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none">
+              <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">Experience Level</label>
+              <select className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/[0.06] rounded-xl px-4 py-3 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none">
                 <option>Fresher</option>
                 <option>Junior</option>
                 <option>Mid-Level</option>
@@ -95,16 +95,16 @@ export default function UserDashboardPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">Interview Difficulty</label>
-              <select className="w-full bg-zinc-950 border border-white/[0.06] rounded-xl px-4 py-3 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none">
+              <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">Interview Difficulty</label>
+              <select className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/[0.06] rounded-xl px-4 py-3 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none">
                 <option>Easy</option>
                 <option>Medium</option>
                 <option>Hard</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">Interview Type</label>
-              <select className="w-full bg-zinc-950 border border-white/[0.06] rounded-xl px-4 py-3 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none">
+              <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">Interview Type</label>
+              <select className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/[0.06] rounded-xl px-4 py-3 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none">
                 <option>Mixed</option>
                 <option>Behavioral</option>
                 <option>Technical</option>

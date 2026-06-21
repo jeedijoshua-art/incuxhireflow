@@ -32,8 +32,8 @@ export default function PracticePage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-teal-500/30">
-      <nav className="fixed top-0 left-0 right-0 z-50 h-[72px] flex items-center bg-zinc-950/75 backdrop-blur-2xl border-b border-white/[0.06]">
+    <div className="min-h-screen bg-transparent text-zinc-100 font-sans selection:bg-teal-500/30">
+      <nav className="fixed top-0 left-0 right-0 z-50 h-[72px] flex items-center bg-[rgba(8,12,20,0.65)] backdrop-blur-2xl border-b border-[rgba(45,212,191,0.08)]">
         <div className="max-w-7xl mx-auto px-6 w-full flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-teal-500/15 border border-teal-500/25 flex items-center justify-center">
@@ -81,7 +81,7 @@ export default function PracticePage() {
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="bg-zinc-900 border border-white/[0.06] rounded-2xl p-8 md:p-12 shadow-2xl relative overflow-hidden"
+          className="bg-[rgba(10,15,25,0.72)] backdrop-blur-[20px] border border-[rgba(45,212,191,0.08)] rounded-2xl p-8 md:p-12 shadow-[0_0_15px_rgba(45,212,191,0.05)] relative overflow-hidden"
         >
           <div className="absolute top-0 left-1/4 w-[300px] h-[300px] rounded-full bg-teal-600/[0.03] blur-[100px] pointer-events-none" />
           
@@ -90,7 +90,7 @@ export default function PracticePage() {
             <p className="text-zinc-400">Answer the question below to see how our AI evaluates your response.</p>
           </div>
 
-          <div className="max-w-2xl mx-auto bg-zinc-950 rounded-xl border border-white/[0.06] p-6 relative z-10">
+          <div className="max-w-2xl mx-auto bg-[rgba(5,8,15,0.6)] rounded-xl border border-[rgba(45,212,191,0.08)] p-6 relative z-10">
             <div className="flex gap-4 mb-6">
               <div className="w-10 h-10 rounded-full bg-teal-500/20 flex items-center justify-center shrink-0">
                 <Brain className="w-5 h-5 text-teal-400" />
@@ -126,15 +126,15 @@ export default function PracticePage() {
                     Analysis Complete
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-zinc-900 p-4 rounded-lg border border-white/[0.05]">
+                    <div className="bg-[rgba(10,15,25,0.72)] p-4 rounded-lg border border-[rgba(45,212,191,0.08)]">
                       <div className="text-xs text-zinc-400 mb-1">Confidence</div>
                       <div className="text-xl font-bold text-cyan-400">89%</div>
                     </div>
-                    <div className="bg-zinc-900 p-4 rounded-lg border border-white/[0.05]">
+                    <div className="bg-[rgba(10,15,25,0.72)] p-4 rounded-lg border border-[rgba(45,212,191,0.08)]">
                       <div className="text-xs text-zinc-400 mb-1">Communication</div>
                       <div className="text-xl font-bold text-teal-400">92%</div>
                     </div>
-                    <div className="bg-zinc-900 p-4 rounded-lg border border-white/[0.05]">
+                    <div className="bg-[rgba(10,15,25,0.72)] p-4 rounded-lg border border-[rgba(45,212,191,0.08)]">
                       <div className="text-xs text-zinc-400 mb-1">Technical Clarity</div>
                       <div className="text-xl font-bold text-violet-400">85%</div>
                     </div>

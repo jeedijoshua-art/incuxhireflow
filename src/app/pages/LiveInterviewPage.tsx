@@ -34,7 +34,7 @@ export default function LiveInterviewPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-zinc-950 p-6">
+    <div className="min-h-screen flex flex-col bg-transparent p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
           <div className="flex items-center gap-2.5 mb-2">
@@ -53,7 +53,7 @@ export default function LiveInterviewPage() {
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6 min-h-0">
         {/* Left: AI Avatar */}
-        <div className="lg:col-span-1 bg-zinc-900 border border-white/[0.06] rounded-2xl p-6 flex flex-col items-center justify-center relative overflow-hidden">
+        <div className="lg:col-span-1 bg-[rgba(10,15,25,0.72)] backdrop-blur-[20px] border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-2xl p-6 flex flex-col items-center justify-center relative overflow-hidden">
           <AIAvatar state={interviewState} />
           <div className="mt-8 text-center text-zinc-400 text-sm">
             {interviewState === "speaking" ? "AI is speaking..." : interviewState === "thinking" ? "AI is thinking..." : "AI is listening..."}
@@ -61,7 +61,7 @@ export default function LiveInterviewPage() {
         </div>
 
         {/* Center: Current Question */}
-        <div className="lg:col-span-2 bg-zinc-900 border border-white/[0.06] rounded-2xl p-8 flex flex-col justify-between">
+        <div className="lg:col-span-2 bg-[rgba(10,15,25,0.72)] backdrop-blur-[20px] border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-2xl p-8 flex flex-col justify-between">
           <div>
             <div className="text-teal-400 text-sm font-semibold mb-4 uppercase tracking-wider">Question {questionIndex}</div>
             <h2 className="text-2xl text-zinc-100 leading-relaxed font-medium">
@@ -99,7 +99,7 @@ export default function LiveInterviewPage() {
 
         {/* Right: Live Metrics */}
         <div className="lg:col-span-1 flex flex-col gap-6">
-          <div className="bg-zinc-900 border border-white/[0.06] rounded-2xl flex-1 p-6 flex flex-col">
+          <div className="bg-[rgba(10,15,25,0.72)] backdrop-blur-[20px] border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-2xl flex-1 p-6 flex flex-col">
             <h3 className="text-sm font-medium text-zinc-400 mb-6 uppercase tracking-wider flex items-center gap-2">
               <Activity className="w-4 h-4 text-teal-400" /> Live Telemetry
             </h3>

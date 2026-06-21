@@ -11,11 +11,11 @@ export default function AdminLoginPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6 relative">
+    <div className="min-h-screen bg-transparent flex items-center justify-center p-6 relative">
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md bg-zinc-900/80 border border-white/[0.08] p-8 rounded-2xl backdrop-blur-xl shadow-2xl relative z-10"
+        className="w-full max-w-md bg-[rgba(10,15,25,0.72)] border border-[rgba(45,212,191,0.08)] p-8 rounded-2xl backdrop-blur-[20px] shadow-[0_0_15px_rgba(45,212,191,0.05)] relative z-10"
       >
         <div className="flex flex-col items-center mb-8">
           <div className="w-12 h-12 rounded-xl bg-teal-500/15 border border-teal-500/25 flex items-center justify-center mb-6">

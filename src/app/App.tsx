@@ -9,10 +9,12 @@ import ResultsDashboardPage from "./pages/ResultsDashboardPage.tsx";
 import AdminLoginPage from "./pages/AdminLoginPage.tsx";
 import AdminDashboardPage from "./pages/AdminDashboardPage.tsx";
 import AppLayout from "./components/layout/AppLayout.tsx";
+import BackgroundProvider from "../components/background/BackgroundProvider.tsx";
 
 export default function App() {
   return (
-    <Routes>
+    <BackgroundProvider>
+      <Routes>
       {/* Public / Marketing */}
       <Route path="/" element={<LandingPage />} />
       <Route path="/practice" element={<PracticePage />} />
@@ -31,6 +33,7 @@ export default function App() {
         <Route path="/dashboard" element={<UserDashboardPage />} />
         <Route path="/results" element={<ResultsDashboardPage />} />
       </Route>
-    </Routes>
+      </Routes>
+    </BackgroundProvider>
   );
 }
