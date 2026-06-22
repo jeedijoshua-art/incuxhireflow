@@ -16,7 +16,7 @@ export default function IntelligenceBackground() {
       setIsLightMode(document.documentElement.classList.contains("light"));
     };
     checkTheme();
-    
+
     const observer = new MutationObserver(checkTheme);
     observer.observe(document.documentElement, {
       attributes: true,
@@ -36,7 +36,6 @@ export default function IntelligenceBackground() {
     let width = window.innerWidth;
     let height = window.innerHeight;
 
-    // Instantiate systems
     const flowField = new FlowField(width, height);
     const particleField = new ParticleField(width, height);
     const neuralConstellations = new NeuralConstellations(width, height);
@@ -111,17 +110,17 @@ export default function IntelligenceBackground() {
       className="fixed inset-0 pointer-events-none z-0"
     >
       {/* Base Background Colors */}
-      <div 
-        className="absolute inset-0 transition-colors duration-700" 
-        style={{ 
-          background: isLightMode ? '#f8fafc' : 'radial-gradient(ellipse at center, #0B1120 0%, #050816 50%, #020617 100%)' 
-        }} 
+      <div
+        className="absolute inset-0 transition-colors duration-700"
+        style={{
+          background: isLightMode ? '#f8fafc' : 'radial-gradient(ellipse at center, #0B1120 0%, #050816 50%, #020617 100%)'
+        }}
       />
-      
+
       {/* Flowing Aurora/Plasma Background Layers (Optimized) */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <motion.div 
-          animate={{ 
+        <motion.div
+          animate={{
             x: [0, 100, -50, 0],
             y: [0, -100, 50, 0],
             scale: [1, 1.1, 0.9, 1],
@@ -131,8 +130,8 @@ export default function IntelligenceBackground() {
           className="absolute -top-[20%] -left-[10%] w-[70vw] h-[70vw] rounded-full"
           style={{ background: 'radial-gradient(circle at center, rgba(13, 148, 136, 0.25) 0%, transparent 60%)' }}
         />
-        <motion.div 
-          animate={{ 
+        <motion.div
+          animate={{
             x: [0, -150, 100, 0],
             y: [0, 150, -100, 0],
             scale: [1, 1.2, 0.8, 1],
@@ -142,8 +141,8 @@ export default function IntelligenceBackground() {
           className="absolute top-[10%] -right-[20%] w-[60vw] h-[60vw] rounded-full"
           style={{ background: 'radial-gradient(circle at center, rgba(8, 145, 178, 0.25) 0%, transparent 60%)' }}
         />
-        <motion.div 
-          animate={{ 
+        <motion.div
+          animate={{
             x: [0, 200, -150, 0],
             y: [0, 50, 150, 0],
             scale: [1, 0.9, 1.1, 1],
@@ -154,7 +153,7 @@ export default function IntelligenceBackground() {
           style={{ background: 'radial-gradient(circle at center, rgba(30, 58, 138, 0.15) 0%, transparent 60%)' }}
         />
       </div>
-      
+
       {/* Intelligence Canvas */}
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
     </motion.div>

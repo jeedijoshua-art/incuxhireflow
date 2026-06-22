@@ -3,7 +3,7 @@ export class NeuralConstellations {
   private width: number;
   private height: number;
 
-  constructor(width: number, height: height) {
+  constructor(width: number, height: number) {
     this.width = width;
     this.height = height;
     this.nodes = [];
