@@ -1,16 +1,18 @@
 import React, { Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
-const LandingPage = React.lazy(() => import("./pages/LandingPage.tsx"));
-const LoginPage = React.lazy(() => import("./pages/LoginPage.tsx"));
-const PracticePage = React.lazy(() => import("./pages/PracticePage.tsx"));
-const UserDashboardPage = React.lazy(() => import("./pages/UserDashboardPage.tsx"));
-const LiveInterviewPage = React.lazy(() => import("./pages/LiveInterviewPage.tsx"));
-const ProcessingPage = React.lazy(() => import("./pages/ProcessingPage.tsx"));
-const ResultsDashboardPage = React.lazy(() => import("./pages/ResultsDashboardPage.tsx"));
-const AdminLoginPage = React.lazy(() => import("./pages/AdminLoginPage.tsx"));
-const AdminDashboardPage = React.lazy(() => import("./pages/AdminDashboardPage.tsx"));
-import AppLayout from "./components/layout/AppLayout.tsx";
-import BackgroundProvider from "../components/background/BackgroundProvider.tsx";
+import AppLayout from "./components/layout/AppLayout";
+import BackgroundProvider from "../components/background/BackgroundProvider";
+
+const LandingPage = React.lazy(() => import("./pages/LandingPage"));
+const LoginPage = React.lazy(() => import("./pages/LoginPage"));
+const PracticePage = React.lazy(() => import("./pages/PracticePage"));
+const UserDashboardPage = React.lazy(() => import("./pages/UserDashboardPage"));
+const LiveInterviewPage = React.lazy(() => import("./pages/LiveInterviewPage"));
+const ProcessingPage = React.lazy(() => import("./pages/ProcessingPage"));
+const ResultsDashboardPage = React.lazy(() => import("./pages/ResultsDashboardPage"));
+const AdminLoginPage = React.lazy(() => import("./pages/AdminLoginPage"));
+const AdminDashboardPage = React.lazy(() => import("./pages/AdminDashboardPage"));
+const InterviewReadinessPage = React.lazy(() => import("./pages/InterviewReadinessPage"));
 
 export default function App() {
   return (
@@ -34,6 +36,7 @@ export default function App() {
       <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
 
       {/* Standalone Application Pages */}
+      <Route path="/interview-readiness" element={<InterviewReadinessPage />} />
       <Route path="/interview" element={<LiveInterviewPage />} />
       <Route path="/processing" element={<ProcessingPage />} />
 

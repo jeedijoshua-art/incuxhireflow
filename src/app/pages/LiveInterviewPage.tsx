@@ -80,7 +80,17 @@ export default function LiveInterviewPage() {
             </div>
             <div className="flex flex-wrap items-center gap-3 justify-end">
               <button 
-                onClick={() => navigate("/processing")}
+                onClick={() => {
+                  // Stop all media tracks attached to any video or audio elements
+                  document.querySelectorAll("video, audio").forEach((media) => {
+                    const srcObject = (media as HTMLVideoElement | HTMLAudioElement).srcObject;
+                    if (srcObject instanceof MediaStream) {
+                      srcObject.getTracks().forEach(track => track.stop());
+                    }
+                  });
+                  // Also stop any global tracks if we were tracking them
+                  navigate("/processing");
+                }}
                 className="px-6 py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-medium rounded-xl transition-colors flex items-center gap-2"
               >
                 <PhoneOff className="w-4 h-4" />

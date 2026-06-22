@@ -116,7 +116,7 @@ export default function UserDashboardPage() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="flex justify-end pt-4">
           <button 
             disabled={!file}
-            onClick={() => navigate("/interview")}
+            onClick={() => navigate("/interview-readiness")}
             className="px-8 py-4 bg-teal-600 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed hover:bg-teal-500 text-white font-medium rounded-xl transition-colors flex items-center gap-2 shadow-lg shadow-teal-900/20"
           >
             Start Mock Interview
