@@ -1,4 +1,19 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+
+// Map between URL paths and stage names
+const PATH_TO_STAGE = {
+  "/": "landing",
+  "/setup": "setup",
+  "/interview": "interview",
+  "/feedback": "done",
+};
+const STAGE_TO_PATH = {
+  landing: "/",
+  setup: "/setup",
+  interview: "/interview",
+  done: "/feedback",
+};
 
 const API = "/api";
 
@@ -32,7 +47,40 @@ const errMsg = (d, fb) => {
 };
 
 export default function App() {
-  const [stage, setStage] = useState("landing");
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [stage, _setStage] = useState(() => PATH_TO_STAGE[location.pathname] || "landing");
+
+  // Wrapped setStage that ALSO updates the URL
+  const setStage = (newStage) => {
+    _setStage(newStage);
+    const path = STAGE_TO_PATH[newStage] || "/";
+    if (location.pathname !== path) navigate(path);
+  };
+
+  // When user hits browser Back/Forward, sync stage to the new URL
+  useEffect(() => {
+    const newStage = PATH_TO_STAGE[location.pathname];
+    if (newStage && newStage !== stage) _setStage(newStage);
+    // Unknown URL → bounce to landing (acts as 404 fallback)
+    if (!newStage) { navigate("/", { replace: true }); _setStage("landing"); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
+  // Guard rails: prevent jumping to a stage that doesn't have its prerequisites
+  useEffect(() => {
+    if (stage === "interview" && !sessionIdRef.current) {
+      // Tried to visit /interview directly without an active session → redirect
+      _setStage("setup");
+      navigate("/setup", { replace: true });
+    }
+    if (stage === "done" && !messages.length) {
+      // Tried to visit /feedback without any interview having happened → redirect
+      _setStage("landing");
+      navigate("/", { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage]);
   const [inputMode, setInputMode] = useState("upload");
   const [resumeText, setResumeText] = useState("");
   const [role, setRole] = useState("");
