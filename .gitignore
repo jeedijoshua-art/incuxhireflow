@@ -50,3 +50,29 @@ Thumbs.db
 # Logs
 *.log
 logs/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+hireflow_favicon_*.png
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environments
+venv/
+.venv/
+
+# Node
+node_modules/
+
+# Build Outputs
+dist/
+build/
+
+# OS
+.DS_Store
