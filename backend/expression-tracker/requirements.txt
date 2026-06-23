@@ -1,1 +1,1 @@
-# Dependencies for Expression Tracker
+opencv-python>=4.8.0

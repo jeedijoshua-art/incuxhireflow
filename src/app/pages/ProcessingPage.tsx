@@ -15,6 +15,18 @@ const STEPS = [
 export default function ProcessingPage() {
   useEffect(() => {
     document.title = "HireFlow | Processing";
+    
+    // Ensure Fullscreen
+    const requestFullscreen = async () => {
+      try {
+        if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        }
+      } catch (err) {
+        console.error("Fullscreen request failed", err);
+      }
+    };
+    requestFullscreen();
   }, []);
 
   const navigate = useNavigate();

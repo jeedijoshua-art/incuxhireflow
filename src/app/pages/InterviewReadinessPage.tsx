@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import { Camera, Mic, Volume2, Wifi, CheckCircle2, AlertCircle, Play, Loader2, Sparkles, XCircle } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { stopAllInterviewResources, registerMediaStream } from "../utils/mediaCleanup";
 
 function cn(...inputs: (string | undefined | null | false)[]) {
   return twMerge(clsx(inputs));
@@ -15,6 +16,7 @@ export default function InterviewReadinessPage() {
   const [cameraState, setCameraState] = useState<"checking" | "connected" | "error" | "denied">("checking");
   const [micState, setMicState] = useState<"checking" | "connected" | "error" | "denied">("checking");
   const [speakerState, setSpeakerState] = useState<"untested" | "testing" | "good" | "bad">("untested");
+  const [faceState, setFaceState] = useState<"checking" | "connected" | "error" | "untested">("untested");
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -33,12 +35,17 @@ export default function InterviewReadinessPage() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         mediaStreamRef.current = stream;
+        registerMediaStream(stream);
         
         setCameraState("connected");
         setMicState("connected");
         
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          // Trigger face check once video is playing
+          videoRef.current.onplaying = () => {
+            checkFaceVerification();
+          };
         }
 
         // Setup Audio Analyser
@@ -92,14 +99,47 @@ export default function InterviewReadinessPage() {
 
     return () => {
       clearInterval(netInterval);
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach(track => track.stop());
-      }
+      stopAllInterviewResources();
       if (audioContextRef.current) {
         audioContextRef.current.close();
       }
     };
   }, []);
+
+  const checkFaceVerification = async () => {
+    if (!videoRef.current) return;
+    setFaceState("checking");
+    
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = videoRef.current.videoWidth || 640;
+      canvas.height = videoRef.current.videoHeight || 480;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      
+      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      const b64 = canvas.toDataURL("image/jpeg", 0.8);
+      
+      const res = await fetch("http://localhost:8000/api/check_face", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: b64 }),
+      });
+      const data = await res.json();
+      
+      if (data.faceDetected) {
+        setFaceState("connected");
+      } else {
+        setFaceState("error");
+        // Retry after 2 seconds if not detected
+        setTimeout(checkFaceVerification, 2000);
+      }
+    } catch (e) {
+      console.error(e);
+      setFaceState("error");
+      setTimeout(checkFaceVerification, 3000);
+    }
+  };
 
   const handlePlayTestAudio = () => {
     setSpeakerState("testing");
@@ -129,22 +169,23 @@ export default function InterviewReadinessPage() {
   const isMicReady = micState === "connected";
   const isSpeakerReady = speakerState === "good";
   const isNetworkReady = networkQuality === "excellent";
+  const isFaceReady = faceState === "connected";
   const isEnvReady = true;
 
   const readinessChecks = [
     { name: "Camera", ready: isCameraReady },
     { name: "Microphone", ready: isMicReady },
     { name: "Speaker", ready: isSpeakerReady },
+    { name: "Face Detected", ready: isFaceReady },
     { name: "Internet", ready: isNetworkReady },
     { name: "Permissions", ready: isCameraReady && isMicReady },
-    { name: "Environment", ready: isEnvReady },
   ];
 
   const readyCount = readinessChecks.filter(c => c.ready).length;
   const totalCount = readinessChecks.length;
   const readinessScore = Math.round((readyCount / totalCount) * 100);
 
-  const canStart = isCameraReady && isMicReady;
+  const canStart = isCameraReady && isMicReady && isFaceReady && isSpeakerReady;
 
   return (
     <div className="min-h-screen pt-24 pb-12 px-6 flex flex-col items-center relative z-10 text-white">
@@ -393,7 +434,12 @@ export default function InterviewReadinessPage() {
         <div className="shrink-0 w-full md:w-auto mt-6 md:mt-0">
           <button 
             disabled={!canStart}
-            onClick={() => navigate("/interview")}
+            onClick={() => {
+              const sessionId = crypto.randomUUID();
+              localStorage.removeItem("hireflow_session");
+              localStorage.setItem("hireflow_session_id", sessionId);
+              navigate("/interview");
+            }}
             className={cn(
               "w-full md:w-auto px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300 relative overflow-hidden group",
               canStart 
@@ -410,8 +456,8 @@ export default function InterviewReadinessPage() {
             </span>
           </button>
           {!canStart && (
-            <p className="text-xs text-red-400/80 text-center mt-3 max-w-[200px]">
-              Camera and Microphone access required to proceed.
+            <p className="text-xs text-red-400/80 text-center mt-3 max-w-[200px] mx-auto">
+              Please complete all checks to proceed.
             </p>
           )}
         </div>
