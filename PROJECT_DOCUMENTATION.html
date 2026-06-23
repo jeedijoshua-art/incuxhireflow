@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>HireFlow · Project Documentation</title>
+<style>
+  @page { size: A4; margin: 18mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Inter, Arial, sans-serif;
+    color: #1a1a1a;
+    line-height: 1.55;
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 30px;
+    background: #fff;
+  }
+  h1 { font-size: 32px; letter-spacing: -0.02em; margin: 0 0 6px; }
+  h2 { font-size: 22px; letter-spacing: -0.01em; margin: 36px 0 12px; border-bottom: 2px solid #111; padding-bottom: 6px; }
+  h3 { font-size: 17px; margin: 22px 0 8px; color: #222; }
+  h4 { font-size: 14px; margin: 16px 0 6px; color: #444; text-transform: uppercase; letter-spacing: 0.05em; }
+  p { margin: 8px 0; }
+  ul, ol { margin: 8px 0 12px; padding-left: 24px; }
+  li { margin: 4px 0; }
+  code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: "JetBrains Mono", Consolas, monospace; font-size: 13px; color: #b91c1c; }
+  pre { background: #0f172a; color: #e2e8f0; padding: 14px 16px; border-radius: 8px; overflow-x: auto; font-family: "JetBrains Mono", Consolas, monospace; font-size: 12.5px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+  th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: #f3f4f6; font-weight: 600; }
+  .cover {
+    text-align: center; padding: 60px 0 40px;
+    border-bottom: 3px solid #111;
+    margin-bottom: 30px;
+  }
+  .cover h1 { font-size: 48px; }
+  .cover .tag { color: #555; font-size: 17px; margin-top: 8px; }
+  .cover .meta { color: #777; font-size: 13px; margin-top: 20px; }
+  .badge { display: inline-block; background: #111; color: #fff; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; margin-right: 6px; }
+  .stack { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0; }
+  .stack-card { border: 1px solid #ddd; border-radius: 8px; padding: 14px; }
+  .stack-card h4 { margin: 0 0 6px; color: #111; }
+  .arch {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 20px;
+    margin: 16px 0;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    white-space: pre;
+  }
+  .note {
+    background: #fefce8;
+    border-left: 4px solid #facc15;
+    padding: 12px 16px;
+    margin: 14px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .ok { color: #16a34a; font-weight: 600; }
+  .warn { color: #d97706; font-weight: 600; }
+  .toc { background: #f9fafb; border-radius: 8px; padding: 14px 22px; margin-bottom: 20px; }
+  .toc ol { margin: 0; padding-left: 20px; }
+  .toc a { color: #1d4ed8; text-decoration: none; }
+  @media print {
+    body { padding: 0; max-width: 100%; }
+    pre { background: #f3f4f6; color: #111; border: 1px solid #ddd; }
+    h2 { page-break-after: avoid; }
+    pre, table { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>HireFlow</h1>
+  <div class="tag">AI-Powered Candidate Evaluation Platform</div>
+  <div class="meta">
+    Voice-first, resume-aware mock interview system<br />
+    Project Documentation · v1.0 · 2026
+  </div>
+</div>
+
+<div class="toc">
+  <h3 style="margin-top:0">Table of Contents</h3>
+  <ol>
+    <li><a href="#overview">Project Overview</a></li>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#stack">Technology Stack</a></li>
+    <li><a href="#architecture">System Architecture</a></li>
+    <li><a href="#flow">End-to-End User Flow</a></li>
+    <li><a href="#backend">Backend Details</a></li>
+    <li><a href="#frontend">Frontend Details</a></li>
+    <li><a href="#voice">Voice Pipeline</a></li>
+    <li><a href="#api">API Endpoints</a></li>
+    <li><a href="#prompt">AI System Prompt</a></li>
+    <li><a href="#setup">Setup & Run Instructions</a></li>
+    <li><a href="#limits">Known Limits & Trade-offs</a></li>
+    <li><a href="#future">Future Improvements</a></li>
+  </ol>
+</div>
+
+<h2 id="overview">1. Project Overview</h2>
+<p><strong>HireFlow</strong> is an AI-powered mock interview platform. A candidate uploads a resume, then the AI conducts a structured 15-question voice interview tailored to that resume. At the end, the candidate gets a printable performance report.</p>
+
+<p><strong>Core idea:</strong> Replace the awkwardness of mock interviews with a friendly AI that adapts to each candidate's background, gives realistic questions, and provides honest feedback — without needing a human interviewer.</p>
+
+<h4>Target Users</h4>
+<ul>
+  <li>Students preparing for placements (B.Tech, MBA, etc.)</li>
+  <li>Working professionals practicing for new roles</li>
+  <li>Self-learners building interview confidence</li>
+  <li>HR teams who want low-cost preliminary screening</li>
+</ul>
+
+<h2 id="features">2. Features</h2>
+<table>
+  <tr><th>Feature</th><th>Description</th></tr>
+  <tr><td>Resume Upload</td><td>Accepts PDF, DOCX, TXT. Auto-extracts text (with fallback parsing)</td></tr>
+  <tr><td>Voice-First Interview</td><td>AI speaks each question; candidate replies by speaking; auto-submits after 5s silence</td></tr>
+  <tr><td>Live Volume Meter</td><td>Animated bars show mic is actively capturing audio</td></tr>
+  <tr><td>15 Resume-Anchored Questions</td><td>Each question references a specific project, skill, or experience from the resume</td></tr>
+  <tr><td>Self-Intro Coverage Check</td><td>Tracks 7 self-introduction points and asks follow-up if missing</td></tr>
+  <tr><td>Off-Topic Detection</td><td>AI calls out gibberish or off-resume answers in real time</td></tr>
+  <tr><td>Voice Personas</td><td>7 selectable AI voices (3 female, 4 male)</td></tr>
+  <tr><td>Auto-Transcript Cleanup</td><td>Spelling corrections only — preserves your actual words</td></tr>
+  <tr><td>Question Counter</td><td>Live display: "Q 5/15 · 10 left"</td></tr>
+  <tr><td>Printable Feedback Report</td><td>Strengths, Areas to Improve, Communication, Technical Depth, Overall Score</td></tr>
+  <tr><td>Dark Theme UI</td><td>Glassmorphism, smooth animations, mobile-responsive</td></tr>
+</table>
+
+<h2 id="stack">3. Technology Stack</h2>
+<div class="stack">
+  <div class="stack-card">
+    <h4>Frontend</h4>
+    <span class="badge">React 18</span>
+    <span class="badge">Vite 5</span>
+    <span class="badge">Web Speech API</span>
+    <span class="badge">MediaRecorder API</span>
+    <p style="font-size:13px;margin-top:8px">Pure React with hooks. Vite for fast HMR development. CSS modules for styling.</p>
+  </div>
+  <div class="stack-card">
+    <h4>Backend</h4>
+    <span class="badge">Node.js</span>
+    <span class="badge">Express 4</span>
+    <span class="badge">Multer</span>
+    <p style="font-size:13px;margin-top:8px">ES Modules, file uploads, JSON API, in-memory + disk session store.</p>
+  </div>
+  <div class="stack-card">
+    <h4>AI / ML Services</h4>
+    <span class="badge">Groq Llama 3.3 70B</span>
+    <span class="badge">Groq Whisper v3</span>
+    <span class="badge">Groq Llama 3.1 8B</span>
+    <p style="font-size:13px;margin-top:8px">Interview brain, speech-to-text, transcript spelling cleanup — all on Groq's free tier.</p>
+  </div>
+  <div class="stack-card">
+    <h4>Document Parsing</h4>
+    <span class="badge">pdf-parse</span>
+    <span class="badge">pdfjs-dist v4</span>
+    <span class="badge">mammoth</span>
+    <p style="font-size:13px;margin-top:8px">PDFs use pdf-parse with pdfjs-dist fallback for malformed XRef. DOCX via Mammoth.</p>
+  </div>
+</div>
+
+<h2 id="architecture">4. System Architecture</h2>
+<div class="arch">┌─────────────────────────────────────────────────────────────┐
+│                        BROWSER (Frontend)                    │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │
+│  │ Resume Input │  │ Voice Console │  │ Chat Display    │   │
+│  │  (drag/drop) │  │ (orb + mic)   │  │ (live bubbles)  │   │
+│  └──────┬───────┘  └───────┬───────┘  └──────────────────┘   │
+│         │                  │                                  │
+│         │                  ▼                                  │
+│         │       MediaRecorder ──> .webm Opus 64kbps           │
+│         │       Web Speech API ──> live transcript preview    │
+│         │       SpeechSynthesis ──> plays AI voice            │
+│         │                                                     │
+└─────────┼─────────────────────────────────────────────────────┘
+          │                  │
+          ▼                  ▼
+  ┌───────────────────────────────────────────────────────────┐
+  │              EXPRESS BACKEND (port 5174)                  │
+  │  POST /api/resume/parse  ─── extract text from file       │
+  │  POST /api/interview/start ── create session, ask Q1      │
+  │  POST /api/interview/answer ── process answer, return Q+1 │
+  │  POST /api/transcribe    ─── audio → text + cleanup       │
+  └────┬────────────────────┬────────────────────┬───────────┘
+       │                    │                    │
+       ▼                    ▼                    ▼
+┌──────────────┐   ┌──────────────────┐   ┌────────────────┐
+│  PDF parser  │   │  Groq Cloud API  │   │ Session Store  │
+│  (pdf-parse) │   │ Llama 3.3 70B    │   │ JSON file on   │
+│  (pdfjs v4)  │   │ Llama 3.1 8B     │   │ /tmp (survives │
+│  (mammoth)   │   │ Whisper Large v3 │   │ restarts)      │
+└──────────────┘   └──────────────────┘   └────────────────┘
+</div>
+
+<h2 id="flow">5. End-to-End User Flow</h2>
+<ol>
+  <li><strong>Open the site</strong> → React loads, user lands on setup page</li>
+  <li><strong>Upload resume</strong> (PDF/DOCX/TXT) or paste text → Backend extracts via pdf-parse / pdfjs / mammoth</li>
+  <li><strong>Enter target role</strong> + tick "Enable voice mode" → pick AI voice persona</li>
+  <li><strong>Click "Start interview"</strong> → Backend creates session, asks Groq Llama 3.3 70B for Q1 → returns text</li>
+  <li><strong>AI speaks Q1</strong> → "Hi [Name], great to meet you. To know more about you, please tell me a little about yourself."</li>
+  <li><strong>After AI finishes</strong> (auto-detected by polling speechSynthesis.speaking) → mic auto-opens, orb turns green</li>
+  <li><strong>Candidate speaks</strong> → MediaRecorder captures audio @ 64kbps Opus + Web Speech API shows live preview</li>
+  <li><strong>5s of silence</strong> → MediaRecorder stops, audio sent to <code>/api/transcribe</code> → Groq Whisper returns transcript → Groq Llama 8B fixes typos</li>
+  <li><strong>Cleaned transcript sent to <code>/api/interview/answer</code></strong> → Backend appends to session history, sends to Llama 3.3 70B with system prompt + question count → receives next question</li>
+  <li><strong>Question shown in chat</strong> + AI speaks it → loop continues to question 15</li>
+  <li><strong>After 15th answer</strong> → Backend tells AI it's the final answer → AI returns structured feedback ending with <code>[INTERVIEW_END]</code></li>
+  <li><strong>"Interview complete" page</strong> → printable HTML report with the feedback → user clicks "Print / Save as PDF"</li>
+</ol>
+
+<h2 id="backend">6. Backend Details</h2>
+
+<h3>File Structure</h3>
+<pre>backend/
+  server.js          ← all logic (Express routes, AI calls, parsing)
+  package.json
+  .env               ← GEMINI_API_KEY, GROQ_API_KEY, PORT
+  node_modules/</pre>
+
+<h3>Key Modules &amp; Why</h3>
+<table>
+  <tr><th>Package</th><th>Purpose</th></tr>
+  <tr><td><code>express</code></td><td>HTTP server, JSON middleware, routing</td></tr>
+  <tr><td><code>cors</code></td><td>Allow cross-origin requests from Vite dev server</td></tr>
+  <tr><td><code>multer</code></td><td>Parse multipart uploads (resume PDF and audio WebM)</td></tr>
+  <tr><td><code>dotenv</code></td><td>Load API keys from .env</td></tr>
+  <tr><td><code>pdf-parse</code></td><td>Fast PDF text extraction (primary)</td></tr>
+  <tr><td><code>pdfjs-dist</code></td><td>Fallback PDF parser for malformed XRef tables</td></tr>
+  <tr><td><code>mammoth</code></td><td>DOCX → plain text</td></tr>
+  <tr><td><code>@google/generative-ai</code></td><td>Kept for optional Gemini fallback (not currently used)</td></tr>
+</table>
+
+<h3>Session Persistence</h3>
+<p>Sessions are stored as JSON in <code>%TEMP%/ai-interview-sessions.json</code>. After every <code>/api/interview/answer</code> response, the session's chat history is saved. On backend restart, all sessions are loaded — interviews survive crashes/restarts.</p>
+
+<h3>Why <code>os.tmpdir()</code> not the project folder?</h3>
+<div class="note">
+  <strong>Bug we fixed:</strong> writing session JSON to the backend folder caused <code>node --watch</code> to detect the file change and restart the server in an infinite loop. Storing in OS temp dir is outside the watch scope.
+</div>
+
+<h2 id="frontend">7. Frontend Details</h2>
+
+<h3>File Structure</h3>
+<pre>frontend/
+  index.html         ← SPA entry, favicon, fonts
+  vite.config.js     ← proxy /api → :5174
+  src/
+    main.jsx         ← React mount + StrictMode
+    App.jsx          ← entire app logic (1000+ lines)
+    App.css          ← dark theme, animations, print styles</pre>
+
+<h3>State Management</h3>
+<p>All state lives in <code>App.jsx</code> using React hooks. Key state buckets:</p>
+<ul>
+  <li><strong>Stage:</strong> <code>setup</code> → <code>interview</code> → <code>done</code></li>
+  <li><strong>Phase:</strong> <code>idle</code> → <code>speaking</code> → <code>listening</code> → <code>submitting</code></li>
+  <li><strong>Session:</strong> <code>sessionId</code> (mirror in ref for synchronous access)</li>
+  <li><strong>Chat:</strong> <code>messages[]</code> array of <code>{role, text}</code></li>
+  <li><strong>Voice:</strong> <code>voiceEnabled</code>, <code>personas[]</code>, <code>selectedPersonaId</code>, <code>volumeLevel</code></li>
+  <li><strong>Recording:</strong> <code>mediaRecorderRef</code>, <code>audioStreamRef</code>, <code>audioChunksRef</code></li>
+</ul>
+
+<h2 id="voice">8. Voice Pipeline</h2>
+
+<h3>Speech Synthesis (AI → Speakers)</h3>
+<ol>
+  <li>Browser's <code>window.speechSynthesis</code> API used</li>
+  <li>7 personas mapped to system voices: <strong>Aria, Sophia, Zira</strong> (female) / <strong>Guy, Ethan, David, Marcus</strong> (male)</li>
+  <li>Each persona has a custom pitch (Marcus: 0.6 = deep, Sophia: 1.15 = light)</li>
+  <li>Text prepended with <code>"... "</code> (4-char silence) to absorb Chrome's first-word clipping bug</li>
+  <li>A silent warm-up utterance plays first to wake the audio engine</li>
+  <li>Mic only opens after polling confirms <code>speaking=false</code> for 400ms + 200ms buffer</li>
+</ol>
+
+<h3>Speech Recognition (Candidate → Text)</h3>
+<p><strong>Dual capture:</strong></p>
+<ul>
+  <li><strong>Web Speech API</strong> (browser STT) — shows live transcript preview while you talk</li>
+  <li><strong>MediaRecorder</strong> (Opus @ 64kbps) — captures actual audio in parallel</li>
+  <li>After 5s of silence (no transcript growth) → audio sent to Groq Whisper for final accurate transcript</li>
+  <li>Groq Llama 3.1 8B fixes typos only (preserves all words)</li>
+  <li>Cleaned text becomes the submitted answer</li>
+</ul>
+
+<div class="note">
+  <strong>Why dual capture?</strong> Web Speech is fast but inaccurate (Google's STT struggles with accented English and tech terms). Whisper is accurate but only runs on submission. Using both gives instant visual feedback + correct final transcript.
+</div>
+
+<h2 id="api">9. API Endpoints</h2>
+
+<table>
+<tr><th>Method</th><th>Path</th><th>Purpose</th><th>Request</th><th>Response</th></tr>
+<tr>
+  <td>POST</td>
+  <td><code>/api/resume/parse</code></td>
+  <td>Extract text from uploaded resume</td>
+  <td>multipart: <code>resume</code> file</td>
+  <td><code>{ text }</code></td>
+</tr>
+<tr>
+  <td>POST</td>
+  <td><code>/api/interview/start</code></td>
+  <td>Create new interview session</td>
+  <td><code>{ resumeText, role }</code></td>
+  <td><code>{ sessionId, message, model, totalQuestions }</code></td>
+</tr>
+<tr>
+  <td>POST</td>
+  <td><code>/api/interview/answer</code></td>
+  <td>Submit answer, get next question or final feedback</td>
+  <td><code>{ sessionId, answer }</code></td>
+  <td><code>{ message, done }</code></td>
+</tr>
+<tr>
+  <td>POST</td>
+  <td><code>/api/transcribe</code></td>
+  <td>Audio → text + spelling cleanup</td>
+  <td>multipart: <code>audio</code> blob, <code>sessionId</code></td>
+  <td><code>{ text }</code></td>
+</tr>
+<tr>
+  <td>GET</td>
+  <td><code>/api/health</code></td>
+  <td>Liveness check</td>
+  <td>—</td>
+  <td><code>{ ok: true }</code></td>
+</tr>
+</table>
+
+<h2 id="prompt">10. AI System Prompt (Llama 3.3 70B)</h2>
+
+<p>The system prompt tells the AI how to conduct the interview. Key sections:</p>
+
+<h4>Interview Structure</h4>
+<ol>
+  <li><strong>Q1:</strong> Greet by name → "Hi [Name], great to meet you. Tell me a little about yourself."</li>
+  <li><strong>Check coverage</strong> of 7 self-intro points (name, education, current work, skills, achievement, target role, why fit, career direction). If missing → ask one follow-up.</li>
+  <li><strong>Q2 to Q15:</strong> Resume-anchored questions cycling through 7 categories (project deep-dive, technical depth, behavioral, hypothetical, gap probe, comparison, real-world application).</li>
+  <li><strong>Final feedback:</strong> Self-intro coverage table + Strengths + Areas to Improve + Communication + Technical Depth + Overall Score /10, ending with <code>[INTERVIEW_END]</code> token.</li>
+</ol>
+
+<h4>Resume Grounding Rule</h4>
+<p>Every question MUST reference a specific item from the resume — a project name, technology, internship, or skill. Generic questions are forbidden.</p>
+
+<h4>Off-Topic Handling</h4>
+<p>If candidate answer is off-topic, gibberish, or unrelated to resume → AI calls it out live and notes it in final feedback.</p>
+
+<h4>Backend Enforcement</h4>
+<p>Beyond the prompt, the backend:</p>
+<ul>
+  <li>Counts user answers and forces <code>done=true</code> at exactly 15</li>
+  <li>Overrides AI's <code>[INTERVIEW_END]</code> if fired too early</li>
+  <li>Strips leaked meta-commentary like "(I'll internally track...)" via regex</li>
+  <li>Injects question count via dynamic system instruction (NOT user message — to avoid leaks)</li>
+</ul>
+
+<h2 id="setup">11. Setup &amp; Run Instructions</h2>
+
+<h3>Prerequisites</h3>
+<ul>
+  <li><strong>Node.js</strong> 18 or higher</li>
+  <li><strong>npm</strong> (comes with Node)</li>
+  <li>A <strong>Groq API key</strong> from <code>https://console.groq.com/keys</code> (free)</li>
+</ul>
+
+<h3>Step 1: Install dependencies</h3>
+<pre># Backend
+cd backend
+npm install
+
+# Frontend
+cd ../frontend
+npm install</pre>
+
+<h3>Step 2: Configure API keys</h3>
+<p>Create <code>backend/.env</code>:</p>
+<pre>GROQ_API_KEY=gsk_your_groq_key_here
+GEMINI_API_KEY=optional_gemini_key   # not used in current build, kept for fallback
+PORT=5174</pre>
+
+<h3>Step 3: Run both servers</h3>
+<pre># Terminal 1 — backend
+cd backend
+node server.js
+
+# Terminal 2 — frontend
+cd frontend
+npm run dev</pre>
+
+<h3>Step 4: Open the app</h3>
+<p>Visit <code>http://localhost:5173/</code> in Chrome or Edge.</p>
+
+<div class="note">
+  <strong>Browser requirement:</strong> Voice features need Chrome or Edge. Firefox has limited Web Speech support. Mic permission must be granted.
+</div>
+
+<h2 id="limits">12. Known Limits &amp; Trade-offs</h2>
+
+<table>
+<tr><th>Limit</th><th>Cause</th><th>Mitigation</th></tr>
+<tr><td>Whisper accuracy on Indian English</td><td>Limit of the model itself</td><td>Llama cleanup catches typos; speak clearly</td></tr>
+<tr><td>Mic opens ~1s after AI finishes</td><td>Buffer to prevent overlap</td><td>Trade-off: safer vs faster</td></tr>
+<tr><td>Groq free tier: 30 req/min</td><td>Groq's policy</td><td>Sufficient for single user; upgrade to paid for multi-user</td></tr>
+<tr><td>Refresh = lose interview</td><td>State only in React memory</td><td>localStorage restore was removed per user request</td></tr>
+<tr><td>Voice quality limited by OS</td><td>Browser uses installed system voices</td><td>Install "Microsoft Natural" voices on Windows for premium quality</td></tr>
+<tr><td>No mobile audio testing</td><td>Tested only on desktop Chrome/Edge</td><td>Should work but unverified</td></tr>
+</table>
+
+<h2 id="future">13. Future Improvements</h2>
+<ul>
+  <li><strong>Multi-user admin dashboard</strong> — HR creates interview codes, candidates join with code</li>
+  <li><strong>Real database</strong> (PostgreSQL/MongoDB) instead of in-memory + file</li>
+  <li><strong>Authentication</strong> — Google login, user history</li>
+  <li><strong>Better STT</strong> — ElevenLabs voice cloning, Deepgram for live streaming</li>
+  <li><strong>Video mode</strong> — record candidate's face for body language feedback</li>
+  <li><strong>Multi-language support</strong> — Hindi, Telugu, Tamil interviews</li>
+  <li><strong>Detailed analytics</strong> — sentence length, filler words, pause frequency</li>
+  <li><strong>Custom question banks</strong> — domain-specific (data science, frontend, etc.)</li>
+  <li><strong>Deploy</strong> — Vercel (frontend) + Render/Railway (backend) for public access</li>
+</ul>
+
+<hr style="margin-top: 50px; border: none; border-top: 1px solid #ddd;" />
+<p style="text-align:center; color:#888; font-size:12px; margin-top:20px">
+  HireFlow · Project Documentation · 2026<br />
+  Built with React, Express, Groq Whisper + Llama 3.3
+</p>
+
+</body>
+</html>

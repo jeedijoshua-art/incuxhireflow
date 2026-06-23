@@ -1,0 +1,30 @@
+Alex Rivera
+Full Stack Engineer
+
+Email: alex.rivera@dev.com
+Phone: (555) 019-2834
+Website: github.com/alexrivera-codes
+
+SUMMARY:
+Results-driven Full Stack Developer with 3+ years of experience designing, building, and deploying robust web applications. Skilled in Python, React, and Machine Learning integration.
+
+SKILLS:
+- Languages: Python, JavaScript, HTML/CSS, SQL
+- Frameworks & Libraries: React, Node.js, FastAPI, Flask, PyTorch, Tailwind CSS
+- Databases: PostgreSQL, MongoDB, Redis
+- Tools & DevOps: Git, Docker, AWS (S3, EC2), Heroku, RESTful APIs
+
+EXPERIENCE:
+Full Stack Developer | TechInnovate Corp
+June 2023 - Present (1 year)
+- Built and maintained a secure user portal in React and Node.js serving over 50,000 active monthly users.
+- Designed and integrated a lightweight Python recommendation service using PyTorch and FastAPI, improving user engagement by 22%.
+- Streamlined dockerized deployments on AWS EC2, cutting build pipeline time by 35%.
+
+Software Engineer Intern | ByteGrad Software
+May 2022 - May 2023 (1 year)
+- Assisted in developing high-throughput web APIs using Flask and PostgreSQL.
+- Authored 120+ unit and integration tests, boosting test coverage to 92% and preventing regression bugs.
+
+EDUCATION:
+B.S. in Computer Science | State University (Graduated May 2023)

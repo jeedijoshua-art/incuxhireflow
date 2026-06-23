@@ -1,0 +1,5 @@
+{
+  "_comment": "Override or extend SKILL_KEYWORDS in skill_extractor.py by loading this file at runtime.",
+  "languages": ["python", "java", "javascript", "typescript", "c++", "c#", "go", "rust"],
+  "frameworks": ["react", "vue", "angular", "next.js", "express", "fastapi", "django", "flask"]
+}
