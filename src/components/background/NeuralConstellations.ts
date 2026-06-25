@@ -1,5 +1,12 @@
 export class NeuralConstellations {
-  private nodes: { x: number; y: number; vx: number; vy: number; radius: number; baseRadius: number }[];
+  private nodes: {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    radius: number;
+    baseRadius: number;
+  }[];
   private width: number;
   private height: number;
 
@@ -24,7 +31,7 @@ export class NeuralConstellations {
     } else if (this.width >= 768) {
       count = 60; // Laptop: 50-70
     }
-    
+
     for (let i = 0; i < count; i++) {
       this.nodes.push({
         x: Math.random() * this.width,
@@ -54,9 +61,12 @@ export class NeuralConstellations {
       if (mouse.active) {
         const dx = mouse.x - node.x;
         const dy = mouse.y - node.y;
-        
+
         // Fast distance check (AABB) before expensive Math.sqrt
-        if (Math.abs(dx) < mouseInfluenceRadius && Math.abs(dy) < mouseInfluenceRadius) {
+        if (
+          Math.abs(dx) < mouseInfluenceRadius &&
+          Math.abs(dy) < mouseInfluenceRadius
+        ) {
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < mouseInfluenceRadius) {
             const force = (mouseInfluenceRadius - dist) / mouseInfluenceRadius;
@@ -66,23 +76,27 @@ export class NeuralConstellations {
             continue;
           }
         }
-      } 
-      
+      }
+
       node.radius = node.baseRadius;
     }
-    
+
     // Sort nodes by X coordinate for spatial optimization during draw
     this.nodes.sort((a, b) => a.x - b.x);
   }
 
-  public draw(ctx: CanvasRenderingContext2D, opacityMultiplier: number, mouse: { x: number; y: number; active: boolean }) {
+  public draw(
+    ctx: CanvasRenderingContext2D,
+    opacityMultiplier: number,
+    mouse: { x: number; y: number; active: boolean },
+  ) {
     const maxDistance = 150;
     const maxDistSq = maxDistance * maxDistance;
     const mouseInfluenceRadius = 250;
     const mouseInfluenceSq = mouseInfluenceRadius * mouseInfluenceRadius;
 
     ctx.fillStyle = `rgba(45, 212, 191, ${0.7 * opacityMultiplier})`;
-    
+
     // Draw Nodes
     for (let i = 0; i < this.nodes.length; i++) {
       const node = this.nodes[i];
@@ -96,13 +110,13 @@ export class NeuralConstellations {
     for (let i = 0; i < this.nodes.length; i++) {
       for (let j = i + 1; j < this.nodes.length; j++) {
         const dx = this.nodes[j].x - this.nodes[i].x;
-        
-        // Spatial optimization: Since nodes are sorted by X, if dx > maxDistance, 
+
+        // Spatial optimization: Since nodes are sorted by X, if dx > maxDistance,
         // no further nodes in the array can possibly be close enough.
         if (dx > maxDistance) break;
 
         const dy = this.nodes[j].y - this.nodes[i].y;
-        
+
         // Fast y-check (AABB)
         if (Math.abs(dy) > maxDistance) continue;
 
@@ -111,14 +125,14 @@ export class NeuralConstellations {
         if (distSq < maxDistSq) {
           const dist = Math.sqrt(distSq);
           let lineOpacity = (1 - dist / maxDistance) * 0.15;
-          
+
           if (mouse.active) {
             const mouseDx = mouse.x - this.nodes[i].x;
             const mouseDy = mouse.y - this.nodes[i].y;
             const mouseDistSq = mouseDx * mouseDx + mouseDy * mouseDy;
-            
+
             if (mouseDistSq < mouseInfluenceSq) {
-               lineOpacity = Math.min(0.45, lineOpacity * 2);
+              lineOpacity = Math.min(0.45, lineOpacity * 2);
             }
           }
 

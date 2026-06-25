@@ -1,0 +1,208 @@
+Created At: 2026-06-25T07:07:41Z
+Completed At: 2026-06-25T07:07:41Z
+File Path: `file:///Users/jeedijoshua/incuxhireflow/src/app/pages/LiveInterviewPage.tsx`
+Total Lines: 784
+Total Bytes: 30052
+Showing lines 1 to 200
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: import { useState, useEffect, useRef } from "react";
+2: import { motion } from "motion/react";
+3: import AIAvatar from "../components/interview/AIAvatar";
+4: import CandidateCamera from "../components/interview/CandidateCamera";
+5: import { useNavigate } from "react-router-dom";
+6: import { PhoneOff, ArrowRight, Activity, Eye, Mic, Zap, Smile, AlertTriangle } from "lucide-react";
+7: import { stopAllInterviewResources, registerInterval } from "../utils/mediaCleanup";
+8: import { VOICE_PERSONAS, resolveBrowserVoice } from "../utils/voicePersonas";
+9: 
+10: interface TelemetryData {
+11:   timestamp: number;
+12:   faceDetected: boolean;
+13:   emotion: string;
+14:   confidence: number;
+15:   attention: number;
+16:   eyeContact: number;
+17: }
+18: 
+19: export default function LiveInterviewPage() {
+20:   const navigate = useNavigate();
+21:   const [interviewState, setInterviewState] = useState<"listening" | "thinking" | "speaking">("speaking");
+22:   const [timeLeft, setTimeLeft] = useState(15 * 60);
+23:   const [questionIndex, setQuestionIndex] = useState(0);
+24:   const [currentQuestion, setCurrentQuestion] = useState("");
+25:   const [isProcessing, setIsProcessing] = useState(false);
+26:   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
+27:   const [warningCount, setWarningCount] = useState(0);
+28:   const [showFullscreenModal, setShowFullscreenModal] = useState(false);
+29: 
+30:   const [telemetry, setTelemetry] = useState<TelemetryData>({
+31:     timestamp: 0,
+32:     faceDetected: false,
+33:     emotion: "Neutral",
+34:     confidence: 0,
+35:     attention: 0,
+36:     eyeContact: 0
+37:   });
+38: 
+39:   const [violations, setViolations] = useState<string[]>([]);
+40:   const wsRef = useRef<WebSocket | null>(null);
+41:   const isEndingInterviewRef = useRef(false);
+42:   
+43:   const [transcript, setTranscript] = useState("");
+44:   const [isProcessingSpeech, setIsProcessingSpeech] = useState(false);
+45:   
+46:   // Speech Recognition State
+47:   const recognitionRef = useRef<any>(null);
+48:   const finalTranscriptRef = useRef<string>("");
+49:   const isRecordingRef = useRef<boolean>(false);
+50:   const telemetryIntervalRef = useRef<number | null>(null);
+51:   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+52:   const textareaRef = useRef<HTMLTextAreaElement>(null);
+53:   const hasFetchedInitialQuestion = useRef(false);
+54: 
+55:   // Auto-scroll textarea
+56:   useEffect(() => {
+57:     if (textareaRef.current) {
+58:       textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
+59:     }
+60:   }, [transcript]);
+61: 
+62:   // Keyboard shortcuts
+63:   useEffect(() => {
+64:     const handleKeyDown = (e: KeyboardEvent) => {
+65:       if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) {
+66:         if (e.key === "Escape") {
+67:           e.preventDefault();
+68:           document.getElementById("clear-btn")?.click();
+69:           document.getElementById("stop-record-btn")?.click();
+70:         }
+71:         return;
+72:       }
+73:       
+74:       if (e.code === "Space") {
+75:         e.preventDefault();
+76:         if (isRecordingRef.current) {
+77:           document.getElementById("stop-record-btn")?.click();
+78:         } else {
+79:           document.getElementById("start-record-btn")?.click();
+80:         }
+81:       } else if (e.key === "Escape") {
+82:         e.preventDefault();
+83:         document.getElementById("clear-btn")?.click();
+84:         document.getElementById("stop-record-btn")?.click();
+85:       }
+86:     };
+87:     
+88:     window.addEventListener("keydown", handleKeyDown);
+89:     return () => window.removeEventListener("keydown", handleKeyDown);
+90:   }, []);
+91: 
+92: 
+93:   const handleFullscreenChange = () => {
+94:     if (isEndingInterviewRef.current) return;
+95:     if (!document.fullscreenElement) {
+96:       console.log("[FULLSCREEN_EXIT]");
+97:       setViolations(prev => [...prev, `Exited fullscreen at ${new Date().toLocaleTimeString()}`]);
+98:       
+99:       setWarningCount(prev => {
+100:         const newCount = prev + 1;
+101:         console.log(`[WARNING_COUNT] ${newCount}`);
+102:         if (newCount >= 3) {
+103:           console.log("[INTERVIEW_TERMINATED]");
+104:           handleEndInterview();
+105:         } else {
+106:           setShowFullscreenModal(true);
+107:         }
+108:         return newCount;
+109:       });
+110:     }
+111:   };
+112: 
+113:   const handleVisibilityChange = () => {
+114:     if (isEndingInterviewRef.current) return;
+115:     if (document.hidden) {
+116:       setViolations(prev => [...prev, `Tab hidden/switched at ${new Date().toLocaleTimeString()}`]);
+117:     }
+118:   };
+119: 
+120:   const handleBlur = () => {
+121:     if (isEndingInterviewRef.current) return;
+122:     setViolations(prev => [...prev, `Window lost focus at ${new Date().toLocaleTimeString()}`]);
+123:   };
+124: 
+125:   // Fetch Next Question Helper
+126:   const fetchNextQuestion = async (sessionId: string) => {
+127:     setIsProcessing(true);
+128:     setInterviewState("thinking");
+129:     try {
+130:       const payload = { session_id: sessionId };
+131:       console.log(`[NEXT_QUESTION] Requesting next question. Current index: ${questionIndex}`);
+132:       console.log("[DEBUG] Fetch Next Question Request URL: http://localhost:8000/interview/next-question");
+133:       console.log("[DEBUG] Fetch Next Question Payload:", payload);
+134:       
+135:       const res = await fetch("http://localhost:8000/interview/next-question", {
+136:         method: "POST",
+137:         headers: { "Content-Type": "application/json" },
+138:         body: JSON.stringify(payload)
+139:       });
+140:       
+141:       console.log("[DEBUG] Fetch Next Question Response Status:", res.status);
+142:       if (!res.ok) {
+143:         const errText = await res.text();
+144:         console.error("[DEBUG] Fetch Next Question Error Body:", errText);
+145:         throw new Error("Failed");
+146:       }
+147:       
+148:       const data = await res.json();
+149:       console.log("[DEBUG] Fetch Next Question Response Body:", data);
+150:       
+151:       if (data.status === "complete") {
+152:         console.log("[DEBUG] Final Report Received:", data.report);
+153:         handleEndInterview(data.report);
+154:         return;
+155:       }
+156:       
+157:       // Use backend index if provided (backend is 0-indexed), otherwise increment
+158:       if (data.index !== undefined) {
+159:         setQuestionIndex(data.index + 1);
+160:       } else {
+161:         setQuestionIndex(prev => prev + 1);
+162:       }
+163:       
+164:       setCurrentQuestion(data.question);
+165:       setInterviewState("speaking");
+166:       speakQuestion(data.question);
+167:     } catch (err) {
+168:       console.error(err);
+169:       alert("Failed to fetch next question");
+170:     } finally {
+171:       setIsProcessing(false);
+172:     }
+173:   };
+174: 
+175:   const speakQuestion = (text: string) => {
+176:     window.speechSynthesis.cancel();
+177:     const utterance = new SpeechSynthesisUtterance(text);
+178:     utteranceRef.current = utterance;
+179:     
+180:     const personaId = localStorage.getItem("hireflow_selected_voice") || "david";
+181:     console.log(`[VOICE_SELECTED] ${personaId}`);
+182:     console.log(`[VOICE_LOADED] ${personaId}`);
+183:     
+184:     const voice = resolveBrowserVoice(personaId);
+185:     if (voice) {
+186:       utterance.voice = voice;
+187:       console.log(`[VOICE_RESOLVED] ${voice.name}`);
+188:     } else {
+189:       console.log(`[VOICE_RESOLVED] Default`);
+190:     }
+191: 
+192:     const persona = VOICE_PERSONAS.find(p => p.id === personaId);
+193:     utterance.rate = 0.95;
+194:     utterance.volume = 1.0;
+195:     if (persona) {
+196:       utterance.pitch = persona.pitch;
+197:     }
+198: 
+199:     console.log(`[SPEAKING_QUESTION] ${text}`);
+200:     
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.

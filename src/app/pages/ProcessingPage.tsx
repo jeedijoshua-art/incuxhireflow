@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { CheckCircle2, Brain, Loader2, Zap } from "lucide-react";
+import { CheckCircle2, Brain, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const STEPS = [
@@ -15,16 +15,17 @@ const STEPS = [
 export default function ProcessingPage() {
   useEffect(() => {
     document.title = "HireFlow | Processing";
-    
+
     // Ensure Fullscreen
     const requestFullscreen = async () => {
       try {
-        if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        if (
+          !document.fullscreenElement &&
+          document.documentElement.requestFullscreen
+        ) {
           await document.documentElement.requestFullscreen();
         }
-      } catch (err) {
-        console.error("Fullscreen request failed", err);
-      }
+      } catch (err) {}
     };
     requestFullscreen();
   }, []);
@@ -34,10 +35,10 @@ export default function ProcessingPage() {
 
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>;
-    
+
     if (currentStep < STEPS.length) {
       timeout = setTimeout(() => {
-        setCurrentStep(prev => prev + 1);
+        setCurrentStep((prev) => prev + 1);
       }, STEPS[currentStep].duration);
     } else {
       timeout = setTimeout(() => {
@@ -49,15 +50,63 @@ export default function ProcessingPage() {
   }, [currentStep, navigate]);
 
   return (
-    <div className="min-h-screen bg-transparent flex items-center justify-center p-8">
-      <div className="w-full max-w-md">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="min-h-screen bg-[#030712] flex items-center justify-center p-6 relative overflow-hidden text-zinc-100 font-sans selection:bg-teal-500/30"
+    >
+      {/* Animated Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute inset-0 bg-gradient-to-br from-teal-900/10 via-black to-blue-900/5" />
+        <motion.div
+          animate={{
+            backgroundPosition: ["0% 0%", "100% 100%"],
+            opacity: [0.15, 0.3, 0.15],
+          }}
+          transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+          className="absolute inset-0"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at center, rgba(45,212,191,0.15) 0%, transparent 50%)",
+            backgroundSize: "120% 120%",
+          }}
+        />
+        {/* Floating particles */}
+        {[...Array(15)].map((_, i) => (
+          <motion.div
+            key={i}
+            initial={{
+              x:
+                Math.random() *
+                (typeof window !== "undefined" ? window.innerWidth : 1000),
+              y:
+                Math.random() *
+                (typeof window !== "undefined" ? window.innerHeight : 1000),
+              scale: Math.random() * 0.5 + 0.5,
+              opacity: Math.random() * 0.3,
+            }}
+            animate={{
+              y: [null, Math.random() * -100 - 50],
+              opacity: [null, 0.5, 0],
+            }}
+            transition={{
+              duration: Math.random() * 5 + 5,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+            className="absolute w-1.5 h-1.5 bg-teal-500 rounded-full blur-[1px]"
+          />
+        ))}
+      </div>
+
+      <div className="w-full max-w-md relative z-10">
         <div className="text-center mb-10">
-          <motion.div 
+          <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
             className="w-16 h-16 rounded-full bg-teal-500/10 border-2 border-dashed border-teal-500/30 flex items-center justify-center mx-auto mb-6"
           >
-            <motion.div 
+            <motion.div
               animate={{ rotate: -360 }}
               transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
             >
@@ -65,8 +114,14 @@ export default function ProcessingPage() {
             </motion.div>
           </motion.div>
           <div className="flex items-center justify-center gap-2.5 mb-2">
-            <img src="/favicon.png" alt="HireFlow Logo" className="w-8 h-8 rounded-lg" />
-            <h1 className="text-2xl font-bold text-zinc-100 tracking-tight">HireFlow</h1>
+            <img
+              src="/favicon.png"
+              alt="HireFlow Logo"
+              className="w-8 h-8 rounded-lg"
+            />
+            <h1 className="text-2xl font-bold text-zinc-100 tracking-tight">
+              HireFlow
+            </h1>
           </div>
           <p className="text-zinc-400 text-sm">Processing Interview...</p>
         </div>
@@ -78,7 +133,7 @@ export default function ProcessingPage() {
             const isPending = index > currentStep;
 
             return (
-              <motion.div 
+              <motion.div
                 key={step.label}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: isPending ? 0.4 : 1, x: 0 }}
@@ -93,7 +148,9 @@ export default function ProcessingPage() {
                     <div className="w-2 h-2 rounded-full bg-zinc-600" />
                   )}
                 </div>
-                <div className={`font-medium ${isCurrent ? "text-teal-400" : isCompleted ? "text-zinc-300" : "text-zinc-600"}`}>
+                <div
+                  className={`font-medium ${isCurrent ? "text-teal-400" : isCompleted ? "text-zinc-300" : "text-zinc-600"}`}
+                >
                   {step.label}
                 </div>
               </motion.div>
@@ -101,6 +158,6 @@ export default function ProcessingPage() {
           })}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

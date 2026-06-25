@@ -12,6 +12,8 @@ export default function UserDashboardPage() {
   const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [targetRole, setTargetRole] = useState("Frontend Developer");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -57,12 +59,24 @@ export default function UserDashboardPage() {
               </div>
               <h3 className="text-zinc-900 dark:text-zinc-100 font-medium mb-1">Drag and drop your resume</h3>
               <p className="text-zinc-500 text-sm mb-4">PDF or DOCX up to 10MB</p>
-              <button 
-                onClick={() => setFile(new window.File([""], "Alex_Rivera_Resume.pdf", { type: "application/pdf" }))}
-                className="px-4 py-2 bg-zinc-900 dark:bg-zinc-800 hover:bg-zinc-800 dark:hover:bg-zinc-700 text-white dark:text-zinc-100 rounded-lg text-sm transition-colors"
+              
+              <input 
+                type="file" 
+                accept=".pdf,.docx" 
+                id="resume-upload" 
+                className="hidden" 
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    setFile(e.target.files[0]);
+                  }
+                }}
+              />
+              <label 
+                htmlFor="resume-upload"
+                className="px-4 py-2 bg-zinc-900 dark:bg-zinc-800 hover:bg-zinc-800 dark:hover:bg-zinc-700 text-white dark:text-zinc-100 rounded-lg text-sm transition-colors cursor-pointer inline-block"
               >
                 Browse Files
-              </button>
+              </label>
             </div>
           ) : (
             <div className="flex items-center gap-4 bg-teal-500/10 border border-teal-500/20 rounded-xl p-4">
@@ -83,7 +97,7 @@ export default function UserDashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">Target Job Role</label>
-              <input type="text" placeholder="e.g. Frontend Developer" className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/[0.06] rounded-xl px-4 py-3 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-teal-500/50" />
+              <input type="text" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} placeholder="e.g. Frontend Developer" className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/[0.06] rounded-xl px-4 py-3 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-teal-500/50" />
             </div>
             <div>
               <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">Experience Level</label>
@@ -115,8 +129,11 @@ export default function UserDashboardPage() {
 
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="flex justify-end pt-4">
           <button 
-            disabled={!file}
-            onClick={() => navigate("/interview-readiness")}
+            disabled={!file || !targetRole.trim()}
+            onClick={() => {
+              if (!file) return;
+              navigate("/interview-preparation", { state: { file, targetRole } });
+            }}
             className="px-8 py-4 bg-teal-600 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed hover:bg-teal-500 text-white font-medium rounded-xl transition-colors flex items-center gap-2 shadow-lg shadow-teal-900/20"
           >
             Start Mock Interview

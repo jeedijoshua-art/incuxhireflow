@@ -22,3 +22,9 @@ build/
 
 # VSCode
 .vscode/settings.json
+
+.env.*
+coverage/
+.vscode/
+.idea/
+*.log

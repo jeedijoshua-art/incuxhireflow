@@ -12,7 +12,7 @@ export default function AdminLoginPage() {
 
   return (
     <div className="min-h-screen bg-transparent flex items-center justify-center p-6 relative">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md bg-[rgba(10,15,25,0.72)] border border-[rgba(45,212,191,0.08)] p-8 rounded-2xl backdrop-blur-md shadow-[0_0_15px_rgba(45,212,191,0.05)] relative z-10"
@@ -24,26 +24,36 @@ export default function AdminLoginPage() {
           <h1 className="text-2xl font-bold text-zinc-100">Admin Portal</h1>
         </div>
 
-        <form onSubmit={(e) => { e.preventDefault(); navigate("/admin/dashboard"); }} className="space-y-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            navigate("/admin/dashboard");
+          }}
+          className="space-y-4"
+        >
           <div>
-            <label className="block text-sm font-medium text-zinc-400 mb-1.5">Email address</label>
-            <input 
-              type="email" 
+            <label className="block text-sm font-medium text-zinc-400 mb-1.5">
+              Email address
+            </label>
+            <input
+              type="email"
               required
-              className="w-full bg-zinc-950 border border-white/[0.06] rounded-xl px-4 py-3 text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-teal-500/50" 
+              className="w-full bg-zinc-950 border border-white/[0.06] rounded-xl px-4 py-3 text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-teal-500/50"
               placeholder="admin@hireflow.ai"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-zinc-400 mb-1.5">Password</label>
-            <input 
-              type="password" 
+            <label className="block text-sm font-medium text-zinc-400 mb-1.5">
+              Password
+            </label>
+            <input
+              type="password"
               required
-              className="w-full bg-zinc-950 border border-white/[0.06] rounded-xl px-4 py-3 text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-teal-500/50" 
+              className="w-full bg-zinc-950 border border-white/[0.06] rounded-xl px-4 py-3 text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-teal-500/50"
               placeholder="••••••••"
             />
           </div>
-          <button 
+          <button
             type="submit"
             className="w-full mt-4 py-3.5 px-4 bg-teal-600 hover:bg-teal-500 text-white font-medium rounded-xl transition-colors duration-150"
           >

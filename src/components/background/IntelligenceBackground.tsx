@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { createNoise3D } from "simplex-noise";
 import { FlowField } from "./FlowField";
@@ -113,7 +113,9 @@ export default function IntelligenceBackground() {
       <div
         className="absolute inset-0 transition-colors duration-700"
         style={{
-          background: isLightMode ? '#f8fafc' : 'radial-gradient(ellipse at center, #0B1120 0%, #050816 50%, #020617 100%)'
+          background: isLightMode
+            ? "#f8fafc"
+            : "radial-gradient(ellipse at center, #0B1120 0%, #050816 50%, #020617 100%)",
         }}
       />
 
@@ -124,33 +126,52 @@ export default function IntelligenceBackground() {
             x: [0, 100, -50, 0],
             y: [0, -100, 50, 0],
             scale: [1, 1.1, 0.9, 1],
-            opacity: [0.15, 0.25, 0.15]
+            opacity: [0.15, 0.25, 0.15],
           }}
           transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
           className="absolute -top-[20%] -left-[10%] w-[70vw] h-[70vw] rounded-full"
-          style={{ background: 'radial-gradient(circle at center, rgba(13, 148, 136, 0.25) 0%, transparent 60%)' }}
+          style={{
+            background:
+              "radial-gradient(circle at center, rgba(13, 148, 136, 0.25) 0%, transparent 60%)",
+          }}
         />
         <motion.div
           animate={{
             x: [0, -150, 100, 0],
             y: [0, 150, -100, 0],
             scale: [1, 1.2, 0.8, 1],
-            opacity: [0.1, 0.2, 0.1]
+            opacity: [0.1, 0.2, 0.1],
           }}
-          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+          transition={{
+            duration: 25,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 2,
+          }}
           className="absolute top-[10%] -right-[20%] w-[60vw] h-[60vw] rounded-full"
-          style={{ background: 'radial-gradient(circle at center, rgba(8, 145, 178, 0.25) 0%, transparent 60%)' }}
+          style={{
+            background:
+              "radial-gradient(circle at center, rgba(8, 145, 178, 0.25) 0%, transparent 60%)",
+          }}
         />
         <motion.div
           animate={{
             x: [0, 200, -150, 0],
             y: [0, 50, 150, 0],
             scale: [1, 0.9, 1.1, 1],
-            opacity: [0.1, 0.2, 0.1]
+            opacity: [0.1, 0.2, 0.1],
           }}
-          transition={{ duration: 30, repeat: Infinity, ease: "easeInOut", delay: 5 }}
+          transition={{
+            duration: 30,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 5,
+          }}
           className="absolute -bottom-[20%] left-[20%] w-[80vw] h-[80vw] rounded-full"
-          style={{ background: 'radial-gradient(circle at center, rgba(30, 58, 138, 0.15) 0%, transparent 60%)' }}
+          style={{
+            background:
+              "radial-gradient(circle at center, rgba(30, 58, 138, 0.15) 0%, transparent 60%)",
+          }}
         />
       </div>
 

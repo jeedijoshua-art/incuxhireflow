@@ -126,7 +126,7 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Figtree', 'Inter', system-ui, sans-serif;
+    font-family: "Figtree", "Inter", system-ui, sans-serif;
   }
 
   /**

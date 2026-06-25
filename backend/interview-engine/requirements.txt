@@ -1,1 +1,4 @@
-# Dependencies for Interview Engine
+google-generativeai
+groq
+pydantic
+python-dotenv

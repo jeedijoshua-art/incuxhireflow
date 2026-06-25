@@ -1,5 +1,13 @@
 export class FlowField {
-  private particles: { x: number; y: number; history: { x: number; y: number }[]; color: string; speed: number; width: number; maxHistory: number }[];
+  private particles: {
+    x: number;
+    y: number;
+    history: { x: number; y: number }[];
+    color: string;
+    speed: number;
+    width: number;
+    maxHistory: number;
+  }[];
   private width: number;
   private height: number;
   private time: number = 0;
@@ -23,7 +31,7 @@ export class FlowField {
     let count = 30;
     if (this.width >= 1024) count = 75;
     else if (this.width >= 768) count = 60;
-    
+
     for (let i = 0; i < count; i++) {
       this.particles.push({
         x: Math.random() * this.width,
@@ -37,7 +45,10 @@ export class FlowField {
     }
   }
 
-  public update(noise3D: any, mouse: { x: number; y: number; active: boolean }) {
+  public update(
+    noise3D: any,
+    mouse: { x: number; y: number; active: boolean },
+  ) {
     this.time += 0.0015;
     const noiseScale = 0.0015;
     const mouseInfluenceRadius = 350;
@@ -45,7 +56,8 @@ export class FlowField {
     for (let i = 0; i < this.particles.length; i++) {
       const p = this.particles[i];
 
-      let angle = noise3D(p.x * noiseScale, p.y * noiseScale, this.time) * Math.PI * 2;
+      let angle =
+        noise3D(p.x * noiseScale, p.y * noiseScale, this.time) * Math.PI * 2;
 
       if (mouse.active) {
         const dx = mouse.x - p.x;
@@ -68,7 +80,12 @@ export class FlowField {
       }
 
       // Wrap around
-      if (p.x < -100 || p.x > this.width + 100 || p.y < -100 || p.y > this.height + 100) {
+      if (
+        p.x < -100 ||
+        p.x > this.width + 100 ||
+        p.y < -100 ||
+        p.y > this.height + 100
+      ) {
         p.x = Math.random() * this.width;
         p.y = Math.random() * this.height;
         p.history = [];
@@ -92,8 +109,10 @@ export class FlowField {
       }
 
       const gradient = ctx.createLinearGradient(
-        p.history[0].x, p.history[0].y,
-        p.x, p.y
+        p.history[0].x,
+        p.history[0].y,
+        p.x,
+        p.y,
       );
       gradient.addColorStop(0, `rgba(0,0,0,0)`);
       gradient.addColorStop(1, p.color);
@@ -101,13 +120,13 @@ export class FlowField {
       ctx.strokeStyle = gradient;
       ctx.lineWidth = p.width;
       ctx.globalAlpha = 0.15 * opacityMultiplier;
-      
+
       // Soft bloom
       ctx.shadowBlur = 10;
       ctx.shadowColor = p.color;
-      
+
       ctx.stroke();
-      
+
       ctx.shadowBlur = 0; // reset
     }
     ctx.globalAlpha = 1.0;

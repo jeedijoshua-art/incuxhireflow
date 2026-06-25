@@ -1,5 +1,13 @@
 export class ParticleField {
-  private particles: { x: number; y: number; size: number; alpha: number; speed: number; angle: number; drift: number }[];
+  private particles: {
+    x: number;
+    y: number;
+    size: number;
+    alpha: number;
+    speed: number;
+    angle: number;
+    drift: number;
+  }[];
   private width: number;
   private height: number;
   private time: number = 0;
@@ -33,7 +41,10 @@ export class ParticleField {
     }
   }
 
-  public update(noise3D: any, mouse: { x: number; y: number; active: boolean }) {
+  public update(
+    noise3D: any,
+    mouse: { x: number; y: number; active: boolean },
+  ) {
     this.time += 0.002;
     const mouseInfluenceRadius = 200;
 
@@ -45,10 +56,11 @@ export class ParticleField {
 
       // Drift gently
       p.angle += p.drift;
-      
+
       // Get a subtle push from the noise field to match the silk waves
-      const noiseAngle = noise3D(p.x * 0.002, p.y * 0.002, this.time * 0.5) * Math.PI * 2;
-      
+      const noiseAngle =
+        noise3D(p.x * 0.002, p.y * 0.002, this.time * 0.5) * Math.PI * 2;
+
       // Blend innate drift with noise drift
       const finalAngle = p.angle * 0.2 + noiseAngle * 0.8;
 
