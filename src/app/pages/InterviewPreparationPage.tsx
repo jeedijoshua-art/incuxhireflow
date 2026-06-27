@@ -71,7 +71,7 @@ export default function InterviewPreparationPage() {
         formData.append("file", file);
         
         console.log("[DEBUG] Starting /resume/analyze");
-        const res1 = await fetch("http://localhost:8000/resume/analyze", {
+        const res1 = await fetch("/resume/analyze", {
           method: "POST",
           body: formData
         });
@@ -96,7 +96,7 @@ export default function InterviewPreparationPage() {
         const payload = { resume_text: resumeText, target_role: targetRole };
         
         console.log("[DEBUG] Starting /interview/start");
-        const res2 = await fetch("http://localhost:8000/interview/start", {
+        const res2 = await fetch("/interview/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)

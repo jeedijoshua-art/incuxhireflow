@@ -1,4 +1,4 @@
-import jsPDF from "jspdf";
+import { jsPDF } from "jspdf";
 
 export interface SessionTurn {
   question: number;
@@ -17,6 +17,22 @@ export interface SessionTurn {
 export function generatePDFReport(sessionData: SessionTurn[]) {
   const doc = new jsPDF();
   let yPos = 20;
+
+  const fallbackSessionData = (() => {
+    try {
+      const raw = localStorage.getItem("hireflow_session");
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      console.error("Failed to parse stored session data for PDF export", error);
+      return [];
+    }
+  })();
+
+  const resolvedSessionData = Array.isArray(sessionData) && sessionData.length > 0
+    ? sessionData
+    : fallbackSessionData;
 
   const addPage = () => {
     doc.addPage();
@@ -62,13 +78,13 @@ export function generatePDFReport(sessionData: SessionTurn[]) {
 
   // Calculate Interview Duration and Questions
   const totalExpectedQuestions = 10;
-  const questionsAttempted = sessionData.length;
+  const questionsAttempted = resolvedSessionData.length;
   const completionStatus = questionsAttempted >= totalExpectedQuestions ? "Completed" : "Incomplete";
 
   let durationText = "0 mins";
-  if (sessionData.length > 0) {
-    const minTime = Math.min(...sessionData.map(d => d.telemetry.timestamp));
-    const maxTime = Math.max(...sessionData.map(d => d.telemetry.timestamp));
+  if (resolvedSessionData.length > 0) {
+    const minTime = Math.min(...resolvedSessionData.map(d => d.telemetry.timestamp));
+    const maxTime = Math.max(...resolvedSessionData.map(d => d.telemetry.timestamp));
     const diffMs = maxTime - minTime;
     // Fallback if timestamps are weird
     if (diffMs > 0 && diffMs < 1000 * 60 * 60) {
@@ -89,12 +105,12 @@ export function generatePDFReport(sessionData: SessionTurn[]) {
   let totalFillerWords = 0;
   const fillerWordsList = ["um", "uh", "like", "you know", "basically", "actually"];
 
-  if (sessionData.length > 0) {
-    avgConf = Math.round(sessionData.reduce((acc, curr) => acc + curr.telemetry.confidence, 0) / sessionData.length);
-    avgAtt = Math.round(sessionData.reduce((acc, curr) => acc + curr.telemetry.attention, 0) / sessionData.length);
-    avgEye = Math.round(sessionData.reduce((acc, curr) => acc + curr.telemetry.eyeContact, 0) / sessionData.length);
+  if (resolvedSessionData.length > 0) {
+    avgConf = Math.round(resolvedSessionData.reduce((acc, curr) => acc + curr.telemetry.confidence, 0) / resolvedSessionData.length);
+    avgAtt = Math.round(resolvedSessionData.reduce((acc, curr) => acc + curr.telemetry.attention, 0) / resolvedSessionData.length);
+    avgEye = Math.round(resolvedSessionData.reduce((acc, curr) => acc + curr.telemetry.eyeContact, 0) / resolvedSessionData.length);
 
-    sessionData.forEach(turn => {
+    resolvedSessionData.forEach(turn => {
       const e = turn.telemetry.emotion || "Neutral";
       emotionCounts[e] = (emotionCounts[e] || 0) + 1;
       if (turn.violations) {
@@ -146,7 +162,7 @@ export function generatePDFReport(sessionData: SessionTurn[]) {
 
   // Overall Behavior Weighted Score:
   // Confidence (30%), Eye Contact (25%), Attention (20%), Speech Quality (25%)
-  const overallScore = sessionData.length > 0
+  const overallScore = resolvedSessionData.length > 0
     ? Math.round((avgConf * 0.30) + (avgEye * 0.25) + (avgAtt * 0.20) + (speechQuality * 0.25))
     : 0;
 
@@ -312,7 +328,7 @@ export function generatePDFReport(sessionData: SessionTurn[]) {
   doc.text(`Dominant Emotion: ${dominantEmotion}`, 20, yPos);
   yPos += 8;
 
-  const totalEmotions = sessionData.length;
+  const totalEmotions = resolvedSessionData.length;
   if (totalEmotions > 0) {
     Object.keys(emotionCounts).forEach(emotion => {
       const count = emotionCounts[emotion];
@@ -384,12 +400,12 @@ export function generatePDFReport(sessionData: SessionTurn[]) {
   checkPageBreak(50);
   yPos = drawSectionHeader("SECTION 5: Question-wise Analysis", yPos);
 
-  if (sessionData.length === 0) {
+  if (resolvedSessionData.length === 0) {
     doc.setFont("helvetica", "italic");
     doc.text("No questions answered.", 20, yPos);
   }
 
-  sessionData.forEach((turn, idx) => {
+  resolvedSessionData.forEach((turn, idx) => {
     checkPageBreak(70);
 
     // Card header
@@ -495,5 +511,11 @@ export function generatePDFReport(sessionData: SessionTurn[]) {
   doc.text(`${overallScore}/100`, 55, yPos);
 
   addFooter();
-  doc.save("HireFlow_Enterprise_Report.pdf");
+  try {
+    doc.save("HireFlow_Enterprise_Report.pdf");
+    return true;
+  } catch (error) {
+    console.error("Failed to export PDF report", error);
+    return false;
+  }
 }

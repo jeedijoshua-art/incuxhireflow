@@ -204,7 +204,7 @@ export default function InterviewReadinessPage() {
       ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
       const b64 = canvas.toDataURL("image/jpeg", 0.8);
 
-      const res = await fetch("http://localhost:8000/api/check_face", {
+      const res = await fetch("/api/check_face", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image: b64 }),

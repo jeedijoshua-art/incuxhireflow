@@ -42,15 +42,34 @@ export default function LiveInterviewPage() {
   
   const [transcript, setTranscript] = useState("");
   const [isProcessingSpeech, setIsProcessingSpeech] = useState(false);
+  const [speechStatus, setSpeechStatus] = useState("Ready to capture your answer");
   
   // Speech Recognition State
   const recognitionRef = useRef<any>(null);
+  const recognitionTimeoutRef = useRef<number | null>(null);
   const finalTranscriptRef = useRef<string>("");
+  const interimTranscriptRef = useRef<string>("");
   const isRecordingRef = useRef<boolean>(false);
   const telemetryIntervalRef = useRef<number | null>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const transcriptRef = useRef<string>("");
   const hasFetchedInitialQuestion = useRef(false);
+
+  const cleanupRecognition = (recognition: any) => {
+    if (!recognition) return;
+    try {
+      recognition.onresult = null;
+      recognition.onend = null;
+      recognition.onerror = null;
+      recognition.onstart = null;
+    } catch (e) {
+      console.warn("[RECOGNITION_CLEANUP_FAILED]", e);
+    }
+    if ((window as any).__activeSpeechRecognitions) {
+      (window as any).__activeSpeechRecognitions.delete(recognition);
+    }
+  };
 
   // Auto-scroll textarea
   useEffect(() => {
@@ -129,10 +148,10 @@ export default function LiveInterviewPage() {
     try {
       const payload = { session_id: sessionId };
       console.log(`[NEXT_QUESTION] Requesting next question. Current index: ${questionIndex}`);
-      console.log("[DEBUG] Fetch Next Question Request URL: http://localhost:8000/interview/next-question");
+      console.log("[DEBUG] Fetch Next Question Request URL: /interview/next-question");
       console.log("[DEBUG] Fetch Next Question Payload:", payload);
       
-      const res = await fetch("http://localhost:8000/interview/next-question", {
+      const res = await fetch("/interview/next-question", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -304,8 +323,74 @@ export default function LiveInterviewPage() {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
+  const normalizeTranscriptText = (value: string) => {
+    return value
+      .replace(/\s+/g, " ")
+      .replace(/\s([,.;:!?])/g, "$1")
+      .trim();
+  };
+
+  const correctSpokenText = (value: string) => {
+    return value
+      .replace(/\bteh\b/gi, "the")
+      .replace(/\bthier\b/gi, "their")
+      .replace(/\bthier\b/gi, "their")
+      .replace(/\brecieve\b/gi, "receive")
+      .replace(/\bseperate\b/gi, "separate")
+      .replace(/\boccured\b/gi, "occurred")
+      .replace(/\bdefinately\b/gi, "definitely")
+      .replace(/\benviroment\b/gi, "environment")
+      .replace(/\bcommited\b/gi, "committed")
+      .replace(/\bimprovment\b/gi, "improvement")
+      .replace(/\bbecuase\b/gi, "because")
+      .replace(/\bgoverment\b/gi, "government")
+      .replace(/\bwierd\b/gi, "weird")
+      .replace(/\bintial\b/gi, "initial")
+      .replace(/\bwich\b/gi, "which")
+      .replace(/\bwht\b/gi, "what")
+      .replace(/\btaht\b/gi, "that")
+      .replace(/\bim\b/gi, "I")
+      .replace(/\bi\b/g, (match, offset) => (offset === 0 ? "I" : match));
+  };
+
+  const updateTranscript = (value: string) => {
+    const normalized = normalizeTranscriptText(value);
+    transcriptRef.current = normalized;
+    setTranscript(normalized);
+  };
+
+  const appendTranscriptChunk = (chunk: string) => {
+    const cleaned = correctSpokenText(normalizeTranscriptText(chunk));
+    if (!cleaned) return;
+
+    const base = finalTranscriptRef.current.trim();
+    const nextValue = base ? `${base} ${cleaned}` : cleaned;
+    finalTranscriptRef.current = nextValue;
+    updateTranscript(nextValue);
+  };
+
+  const persistSessionTurn = (turnTranscript: string) => {
+    const cleanTranscript = turnTranscript.trim();
+    if (!cleanTranscript) return;
+
+    try {
+      const existing = JSON.parse(localStorage.getItem("hireflow_session") || "[]");
+      const sessionData = Array.isArray(existing) ? existing : [];
+      sessionData.push({
+        question: questionIndex,
+        transcript: cleanTranscript,
+        telemetry,
+        violations,
+      });
+      localStorage.setItem("hireflow_session", JSON.stringify(sessionData));
+    } catch (error) {
+      console.error("[SESSION_PERSIST_ERROR]", error);
+    }
+  };
+
   const handleNextQuestion = async () => {
-    if (!transcript.trim()) return;
+    const answerText = transcriptRef.current.trim();
+    if (!answerText) return;
     const sessionId = localStorage.getItem("hireflow_session_id");
     if (!sessionId) return;
     
@@ -316,27 +401,20 @@ export default function LiveInterviewPage() {
     if (recognitionRef.current) {
       console.log("[RECOGNITION_STOPPED]");
       try { recognitionRef.current.stop(); } catch(e){}
-      console.log("[RECOGNITION_ABORTED]");
-      try { recognitionRef.current.abort(); } catch(e){}
-      recognitionRef.current.onresult = null;
-      recognitionRef.current.onend = null;
-      recognitionRef.current.onerror = null;
-      recognitionRef.current.onstart = null;
-      console.log("[RECOGNITION_DESTROYED]");
-      recognitionRef.current = null;
+      console.log("[RECOGNITION_STOP_PENDING]");
     }
     isRecordingRef.current = false;
     setInterviewState("thinking");
     console.log("[NEXT_QUESTION_READY]");
     
     try {
-      const payload = { session_id: sessionId, answer: transcript };
+      const payload = { session_id: sessionId, answer: answerText };
       console.log("[SUBMIT_ANSWER]");
-      console.log("[DEBUG] Submit Answer Request URL: http://localhost:8000/interview/text-answer");
+      console.log("[DEBUG] Submit Answer Request URL: /interview/text-answer");
       console.log("[DEBUG] Submit Answer Payload:", payload);
       
       // 1. Submit the text answer
-      const res = await fetch("http://localhost:8000/interview/text-answer", {
+      const res = await fetch("/interview/text-answer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -358,16 +436,8 @@ export default function LiveInterviewPage() {
         return;
       }
       
-      // Save current turn data locally
-      const sessionData = JSON.parse(localStorage.getItem("hireflow_session") || "[]");
-      sessionData.push({
-        question: questionIndex,
-        transcript,
-        telemetry,
-      });
-      localStorage.setItem("hireflow_session", JSON.stringify(sessionData));
-      
-      setTranscript("");
+      persistSessionTurn(answerText);
+      updateTranscript("");
       
       // 2. Fetch the next question
       await fetchNextQuestion(sessionId);
@@ -378,129 +448,152 @@ export default function LiveInterviewPage() {
     }
   };
 
-  const onStartRecording = () => {
+  const onStartRecording = async () => {
     if (isAiSpeaking) {
       console.log("[BLOCKED_RECORDING_ATTEMPT]");
       return;
     }
-    
-    if (isRecordingRef.current || recognitionRef.current) {
-      console.log("[PREVENT_INVALID_STATE] Recognition already exists or is running.");
+
+    const supported = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!supported) {
+      alert("Speech recognition is not supported in this browser.");
+      setSpeechStatus("Speech recognition not supported.");
       return;
     }
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Speech recognition is not supported in this browser.");
-      return;
+    setSpeechStatus("Listening for your answer...");
+
+    if (recognitionRef.current) {
+      console.log("[CLEANUP_EXISTING_RECOGNITION]");
+      try { recognitionRef.current.stop(); } catch (e) { console.warn(e); }
+      cleanupRecognition(recognitionRef.current);
+      recognitionRef.current = null;
+      isRecordingRef.current = false;
     }
 
     console.log("[NEW_RECOGNITION_CREATED]");
-    console.log("[RECOGNITION_CREATED]");
-    const recognition = new SpeechRecognition();
+    const recognition = new supported();
+    if (!(window as any).__activeSpeechRecognitions) {
+      (window as any).__activeSpeechRecognitions = new Set();
+    }
+    (window as any).__activeSpeechRecognitions.add(recognition);
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.maxAlternatives = 5;
-    // Attempt en-IN for better Indian accent support (falls back gracefully to default if unsupported natively)
-    recognition.lang = "en-IN";
-
-    finalTranscriptRef.current = transcript.trim();
+    recognition.maxAlternatives = 1;
+    recognition.lang = window.navigator.language || "en-US";
 
     recognition.onstart = () => {
       console.log("[RECOGNITION_STARTED]");
       isRecordingRef.current = true;
+      setSpeechStatus("Listening for your answer...");
       setInterviewState("listening");
     };
 
+    recognition.onaudiostart = () => {
+      console.log("[AUDIO_STARTED]");
+    };
+
+    recognition.onaudioend = () => {
+      console.log("[AUDIO_ENDED]");
+    };
+
+    recognition.onspeechstart = () => {
+      console.log("[SPEECH_STARTED]");
+    };
+
     recognition.onresult = (event: any) => {
-      let interimTranscript = '';
-      let newFinal = '';
-      
+      console.log("[RECOGNITION_EVENT]", event);
+      if (!event.results || event.results.length === 0) {
+        console.log("[RECOGNITION_EMPTY_RESULT]");
+        return;
+      }
+
+      let finalTranscript = finalTranscriptRef.current.trim();
+      const interimChunks: string[] = [];
+
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        let bestAlt = event.results[i][0];
-        for (let j = 1; j < event.results[i].length; j++) {
-          if (event.results[i][j].confidence > bestAlt.confidence) {
-            bestAlt = event.results[i][j];
-          }
-        }
-        
-        const transcriptSegment = bestAlt.transcript;
-        if (event.results[i].isFinal) {
-          newFinal += transcriptSegment;
-          console.log("[FINAL_RESULT]", transcriptSegment);
+        const result = event.results[i];
+        const transcriptText = result[0]?.transcript || "";
+        const normalizedText = normalizeTranscriptText(transcriptText);
+        const cleanedText = correctSpokenText(normalizedText || transcriptText);
+        if (!cleanedText) continue;
+
+        if (result.isFinal) {
+          finalTranscript = finalTranscript ? `${finalTranscript} ${cleanedText}` : cleanedText;
+          console.log("[FINAL_RESULT]", cleanedText);
         } else {
-          interimTranscript += transcriptSegment;
-          console.log("[INTERIM_RESULT]", transcriptSegment);
+          interimChunks.push(cleanedText);
+          console.log("[INTERIM_RESULT]", cleanedText);
         }
       }
 
-      const formatText = (text: string) => {
-        if (!text) return text;
-        return text.replace(/\s+/g, ' ').trim();
-      };
-      
-      if (newFinal) {
-        const chunk = formatText(newFinal);
-        if (chunk) {
-           const lastChar = finalTranscriptRef.current.slice(-1);
-           const needsSpace = finalTranscriptRef.current.length > 0 && !lastChar.match(/[\s.!?]/);
-           
-           let formattedChunk = chunk;
-           // Capitalize first letter if it's the beginning of a sentence
-           if (finalTranscriptRef.current.length === 0 || lastChar.match(/[.!?]\s*$/)) {
-             formattedChunk = formattedChunk.charAt(0).toUpperCase() + formattedChunk.slice(1);
-           }
-           
-           finalTranscriptRef.current += (needsSpace ? ' ' : '') + formattedChunk;
-        }
-      }
-      
-      let displayText = finalTranscriptRef.current;
-      const currentInterim = formatText(interimTranscript);
-      
-      if (currentInterim) {
-        const lastChar = displayText.slice(-1);
-        const needsSpace = displayText.length > 0 && !lastChar.match(/[\s.!?]/);
-        displayText += (needsSpace ? ' ' : '') + currentInterim;
-      }
-      
+      finalTranscriptRef.current = finalTranscript;
+      const interimTranscript = interimChunks.join(" ").trim();
+      interimTranscriptRef.current = interimTranscript;
+      const displayText = [finalTranscript, interimTranscript].filter(Boolean).join(" ").trim();
+
+      transcriptRef.current = displayText;
       setTranscript(displayText);
-      console.log("[TRANSCRIPT_UPDATED]", displayText);
+      console.log("[TRANSCRIPT_DISPLAY]", displayText);
+      setSpeechStatus(interimTranscript ? "Listening for your answer..." : "Answer captured");
+    };
+
+    recognition.onnomatch = () => {
+      console.log("[RECOGNITION_NO_MATCH]");
+      setSpeechStatus("No speech recognized. Please try again.");
     };
 
     recognition.onend = () => {
-      console.log("[RECOGNITION_STOPPED]");
-      isRecordingRef.current = false;
+      console.log("[RECOGNITION_ONEND] isRecording=", isRecordingRef.current);
+      cleanupRecognition(recognition);
+      recognitionRef.current = null;
+      if (!isRecordingRef.current) {
+        setSpeechStatus("Recording stopped");
+        return;
+      }
+      setSpeechStatus("Speech recognition ended. Click Start to speak again.");
+      setInterviewState("thinking");
     };
 
     recognition.onerror = (event: any) => {
       console.error("[SPEECH_ERROR]", event.error);
-      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+      setSpeechStatus(`Speech error: ${event.error}`);
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
         isRecordingRef.current = false;
         setInterviewState("thinking");
       }
     };
 
+    finalTranscriptRef.current = transcriptRef.current.trim();
     recognitionRef.current = recognition;
-    recognition.start();
+    try {
+      recognition.start();
+    } catch (e) {
+      console.error("[RECOGNITION_START_FAILED]", e);
+      setSpeechStatus("Failed to start speech recognition. Please refresh and try again.");
+      return;
+    }
   };
 
   const onStopRecording = () => {
     console.log("[STOP_BUTTON_CLICKED]");
-    if (recognitionRef.current) {
-      console.log("[RECOGNITION_STOPPED]");
-      try { recognitionRef.current.stop(); } catch(e){}
-      console.log("[RECOGNITION_ABORTED]");
-      try { recognitionRef.current.abort(); } catch(e){}
-      recognitionRef.current.onresult = null;
-      recognitionRef.current.onend = null;
-      recognitionRef.current.onerror = null;
-      recognitionRef.current.onstart = null;
-      console.log("[RECOGNITION_DESTROYED]");
-      recognitionRef.current = null;
+    setSpeechStatus("Recording stopped");
+    if (recognitionTimeoutRef.current) {
+      window.clearTimeout(recognitionTimeoutRef.current);
+      recognitionTimeoutRef.current = null;
     }
+
+    if (recognitionRef.current) {
+      console.log("[RECOGNITION_STOP_CALL]");
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        console.error("[RECOGNITION_STOP_ERROR]", e);
+      }
+      // Leave recognitionRef.current intact until onend fires so final results are delivered.
+    }
+
     isRecordingRef.current = false;
-    
     setInterviewState("thinking");
     setIsProcessingSpeech(true);
     setTimeout(() => {
@@ -509,64 +602,63 @@ export default function LiveInterviewPage() {
   };
 
   const onTranscriptUpdate = (newText: string) => {
-    setTranscript(newText);
+    updateTranscript(newText);
   };
 
   const handleClearAnswer = () => {
-    setTranscript("");
+    updateTranscript("");
     finalTranscriptRef.current = "";
+    setSpeechStatus("Answer cleared");
   };
   // ----------------------------------------------------
 
   const handleEndInterview = (finalReport?: any) => {
+    if (isEndingInterviewRef.current) return;
     isEndingInterviewRef.current = true;
-    
-    document.removeEventListener("fullscreenchange", handleFullscreenChange);
-    document.removeEventListener("visibilitychange", handleVisibilityChange);
-    window.removeEventListener("blur", handleBlur);
-    window.speechSynthesis.cancel();
 
-    // Save final turn if not already saved via loop
-    if (transcript.trim() && !finalReport) {
-      const sessionData = JSON.parse(localStorage.getItem("hireflow_session") || "[]");
-      sessionData.push({
-        question: questionIndex,
-        transcript,
-        telemetry,
-        violations
-      });
-      localStorage.setItem("hireflow_session", JSON.stringify(sessionData));
-    }
-    
-    if (finalReport) {
-      localStorage.setItem("hireflow_final_report", JSON.stringify(finalReport));
-    }
+    try {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleBlur);
+      window.speechSynthesis.cancel();
 
-    if (recognitionRef.current) {
-      console.log("[RECOGNITION_STOPPED]");
-      try { recognitionRef.current.stop(); } catch(e){}
-      console.log("[RECOGNITION_ABORTED]");
-      try { recognitionRef.current.abort(); } catch(e){}
-      recognitionRef.current.onresult = null;
-      recognitionRef.current.onend = null;
-      recognitionRef.current.onerror = null;
-      recognitionRef.current.onstart = null;
-      console.log("[RECOGNITION_DESTROYED]");
-      recognitionRef.current = null;
+      const currentTranscript = transcriptRef.current.trim();
+      if (currentTranscript && !finalReport) {
+        persistSessionTurn(currentTranscript);
+      }
+
+      if (finalReport) {
+        localStorage.setItem("hireflow_final_report", JSON.stringify(finalReport));
+      }
+
+      if (recognitionRef.current) {
+        console.log("[RECOGNITION_STOPPED]");
+        try { recognitionRef.current.stop(); } catch(e){}
+        console.log("[RECOGNITION_ABORTED]");
+        try { recognitionRef.current.abort(); } catch(e){}
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onstart = null;
+        console.log("[RECOGNITION_DESTROYED]");
+        recognitionRef.current = null;
+      }
+      isRecordingRef.current = false;
+      console.log("[MIC_STOPPED]");
+      stopAllInterviewResources();
+      console.log("[CAMERA_STOPPED]");
+      console.log("[STREAM_CLEANED]");
+    } catch (error) {
+      console.error("[END_INTERVIEW_ERROR]", error);
     }
-    isRecordingRef.current = false;
-    console.log("[MIC_STOPPED]");
-    stopAllInterviewResources();
-    console.log("[CAMERA_STOPPED]");
-    console.log("[STREAM_CLEANED]");
 
     console.log("[REPORT_GENERATION] Navigating to processing page");
-    navigate("/processing");
+    navigate("/processing", { replace: true });
   };
 
   const handleFrameCaptured = async (b64: string) => {
     try {
-      const res = await fetch("http://localhost:8000/api/check_face", {
+      const res = await fetch("/api/check_face", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image: b64 })

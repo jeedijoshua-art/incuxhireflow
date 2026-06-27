@@ -11,11 +11,12 @@ logger = logging.getLogger(__name__)
 
 # Add directories to sys.path
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+API_DIR = os.path.dirname(os.path.abspath(__file__))
 TRACKER_DIR = os.path.join(BASE_DIR, "expression-tracker")
 INTERVIEW_ENGINE_DIR = os.path.join(BASE_DIR, "interview-engine")
 RESUME_ANALYZER_DIR = os.path.join(BASE_DIR, "resume-analyzer")
 
-for directory in [TRACKER_DIR, INTERVIEW_ENGINE_DIR, RESUME_ANALYZER_DIR]:
+for directory in [API_DIR, TRACKER_DIR, INTERVIEW_ENGINE_DIR, RESUME_ANALYZER_DIR]:
     if directory not in sys.path:
         sys.path.insert(0, directory)
 
@@ -32,7 +33,12 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

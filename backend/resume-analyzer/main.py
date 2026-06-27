@@ -73,6 +73,7 @@ def run_resume_analysis(resume_path: str, target_role: str = "Software Engineer"
     # Format full result
     full_result = {
         "summary": output.model_dump(),
+        "raw_text": resume_text,
         "detailed_experience": [exp.model_dump() for exp in exp_result.experiences],
         "detailed_score": score_result.model_dump(),
         "questions": [q.model_dump() for q in questions]
