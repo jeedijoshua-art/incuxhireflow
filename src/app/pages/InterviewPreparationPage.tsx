@@ -48,6 +48,8 @@ export default function InterviewPreparationPage() {
 
     let isMounted = true;
     let fakeProgressInterval: any;
+    // Bug #2 fix: AbortController to cancel in-flight fetches on retry/unmount
+    const abortController = new AbortController();
 
     async function processInterview() {
       setIsError(false);
@@ -73,7 +75,8 @@ export default function InterviewPreparationPage() {
         console.log("[DEBUG] Starting /resume/analyze");
         const res1 = await fetch("/resume/analyze", {
           method: "POST",
-          body: formData
+          body: formData,
+          signal: abortController.signal
         });
         
         if (!res1.ok) {
@@ -87,8 +90,8 @@ export default function InterviewPreparationPage() {
         localStorage.setItem("hireflow_resume_data", JSON.stringify(result1));
         localStorage.setItem("hireflow_target_role", targetRole);
 
-        // visually jump to midway
-        setProgress(Math.max(progress, 40));
+        // Bug #1 fix: use functional updater to avoid stale closure on progress
+        setProgress(p => Math.max(p, 40));
         setCurrentStage(2); 
 
         // Stage 2: Interview Session Start
@@ -99,7 +102,8 @@ export default function InterviewPreparationPage() {
         const res2 = await fetch("/interview/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          signal: abortController.signal
         });
         
         if (!res2.ok) {
@@ -110,6 +114,10 @@ export default function InterviewPreparationPage() {
         const result2 = await res2.json();
         if (!isMounted) return;
         
+        // Bug #4 fix: guard against missing session_id before storing
+        if (!result2.session_id) {
+          throw new Error("Interview initialization failed: no session ID returned from server.");
+        }
         localStorage.removeItem("hireflow_session");
         localStorage.setItem("hireflow_session_id", result2.session_id);
 
@@ -124,6 +132,8 @@ export default function InterviewPreparationPage() {
 
       } catch (err: any) {
         if (!isMounted) return;
+        // Bug #2 fix: ignore abort errors from retries/unmounts
+        if (err.name === "AbortError") return;
         clearInterval(fakeProgressInterval);
         setIsError(true);
         setError(err.message || "An unexpected network error occurred.");
@@ -134,6 +144,7 @@ export default function InterviewPreparationPage() {
 
     return () => {
       isMounted = false;
+      abortController.abort();
       if (fakeProgressInterval) clearInterval(fakeProgressInterval);
     };
   }, [file, targetRole, navigate, retryCount]);

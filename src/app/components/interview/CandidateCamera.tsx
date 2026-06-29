@@ -2,12 +2,27 @@ import React, { useEffect, useRef } from "react";
 import { Camera } from "lucide-react";
 import { motion } from "motion/react";
 import {
-  stopAllInterviewResources,
   registerMediaStream,
+  consumeHandoffMediaStream,
 } from "../../utils/mediaCleanup";
 
 interface CandidateCameraProps {
   onFrameCaptured?: (b64: string) => void;
+}
+
+async function attachStreamToVideo(
+  video: HTMLVideoElement,
+  stream: MediaStream,
+) {
+  video.srcObject = stream;
+  try {
+    await video.play();
+  } catch (err) {
+    console.warn("[CAMERA] video.play() failed, retrying on loadedmetadata", err);
+    video.onloadedmetadata = () => {
+      video.play().catch((e) => console.error("[CAMERA] play retry failed", e));
+    };
+  }
 }
 
 const CandidateCamera = React.memo(function CandidateCamera({
@@ -16,6 +31,7 @@ const CandidateCamera = React.memo(function CandidateCamera({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const ownsStreamRef = useRef(false);
   const onFrameCapturedRef = useRef(onFrameCaptured);
 
   useEffect(() => {
@@ -23,19 +39,54 @@ const CandidateCamera = React.memo(function CandidateCamera({
   }, [onFrameCaptured]);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function setupCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: false,
-        });
-        streamRef.current = stream;
-        registerMediaStream(stream);
+      const handoffStream = consumeHandoffMediaStream();
+      if (handoffStream && handoffStream.getVideoTracks().some((t) => t.readyState === "live")) {
+        streamRef.current = handoffStream;
+        ownsStreamRef.current = false;
+        registerMediaStream(handoffStream);
         if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+          await attachStreamToVideo(videoRef.current, handoffStream);
         }
-      } catch (err) {}
+        return;
+      }
+
+      let retries = 3;
+      while (retries > 0 && !cancelled) {
+        try {
+          await new Promise((r) => setTimeout(r, 300));
+
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+          if (cancelled) {
+            stream.getTracks().forEach((track) => track.stop());
+            return;
+          }
+
+          streamRef.current = stream;
+          ownsStreamRef.current = true;
+          registerMediaStream(stream);
+          if (videoRef.current) {
+            await attachStreamToVideo(videoRef.current, stream);
+          }
+          break;
+        } catch (err) {
+          console.error(
+            `[CAMERA_ERROR] Failed to get camera stream. Retries left: ${retries - 1}`,
+            err,
+          );
+          retries--;
+          if (retries === 0) {
+            console.error("[CAMERA_FATAL] Could not initialize camera after multiple attempts.");
+          }
+        }
+      }
     }
+
     setupCamera();
 
     const captureInterval = setInterval(() => {
@@ -53,19 +104,20 @@ const CandidateCamera = React.memo(function CandidateCamera({
           }
         }
       }
-    }, 1000); // 1 FPS for telemetry
+    }, 1000);
 
     return () => {
+      cancelled = true;
       clearInterval(captureInterval);
-      stopAllInterviewResources();
-      if (streamRef.current) {
+      if (ownsStreamRef.current && streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
+      streamRef.current = null;
     };
-  }, []); // Empty dependency array ensures setup only runs once on mount
+  }, []);
 
   return (
-    <div className="bg-[rgba(10,15,25,0.72)] backdrop-blur-md border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-2xl flex flex-col overflow-hidden">
+    <div className="bg-[#0a0f19] border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-2xl flex flex-col overflow-hidden">
       <div className="p-4 border-b border-white/[0.06] flex items-center gap-2">
         <Camera className="w-4 h-4 text-teal-400" />
         <h3 className="text-sm font-medium text-zinc-300 uppercase tracking-wider">
@@ -73,12 +125,11 @@ const CandidateCamera = React.memo(function CandidateCamera({
         </h3>
       </div>
 
-      {/* Camera Feed */}
-      <div className="relative aspect-video bg-black/50 overflow-hidden">
+      <div className="relative aspect-video bg-zinc-900 overflow-hidden">
         <motion.video
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 1 }}
+          transition={{ duration: 0.4 }}
           ref={videoRef}
           autoPlay
           playsInline
@@ -88,7 +139,6 @@ const CandidateCamera = React.memo(function CandidateCamera({
         <canvas ref={canvasRef} className="hidden" />
       </div>
 
-      {/* AI Environment Status */}
       <div className="p-4 bg-zinc-900/30 flex flex-col gap-3">
         <h4 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-1">
           AI Environment Status

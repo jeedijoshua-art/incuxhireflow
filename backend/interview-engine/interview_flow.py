@@ -2,6 +2,12 @@ import os
 from typing import List, Dict, Optional
 from pydantic import BaseModel, Field
 
+class InterviewQuestionTurn(BaseModel):
+    question: str
+    expected_answer: str
+    candidate_answer: str = ""
+    evaluation: Optional[Dict] = None
+
 class InterviewSessionState(BaseModel):
     session_id: str
     target_role: str
@@ -9,8 +15,12 @@ class InterviewSessionState(BaseModel):
     current_question_index: int = 1
     total_questions: int = 10
     chat_history: List[Dict[str, str]] = Field(default_factory=list)
-    evaluations: List[Dict[str, int]] = Field(default_factory=list)
+    question_turns: List[InterviewQuestionTurn] = Field(default_factory=list)
     is_completed: bool = False
+
+    @property
+    def evaluations(self) -> List[Dict]:
+        return [turn.evaluation for turn in self.question_turns if turn.evaluation is not None]
 
 class InterviewFlowManager:
     """
@@ -37,14 +47,21 @@ class InterviewFlowManager:
         cat_index = idx % len(self.CATEGORIES)
         return self.CATEGORIES[cat_index]
 
-    def add_interviewer_question(self, question: str):
+    def add_interviewer_question(self, question: str, expected_answer: str):
         self.state.chat_history.append({"role": "interviewer", "text": question})
+        self.state.question_turns.append(InterviewQuestionTurn(
+            question=question,
+            expected_answer=expected_answer
+        ))
 
     def add_candidate_answer(self, answer: str):
         self.state.chat_history.append({"role": "candidate", "text": answer})
+        if self.state.question_turns:
+            self.state.question_turns[-1].candidate_answer = answer
 
-    def record_evaluation(self, evaluation: Dict[str, int]):
-        self.state.evaluations.append(evaluation)
+    def record_evaluation(self, evaluation: Dict):
+        if self.state.question_turns:
+            self.state.question_turns[-1].evaluation = evaluation
 
     def advance_turn(self):
         """

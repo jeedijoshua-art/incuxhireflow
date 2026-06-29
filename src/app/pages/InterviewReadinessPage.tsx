@@ -18,6 +18,7 @@ import { twMerge } from "tailwind-merge";
 import {
   stopAllInterviewResources,
   registerMediaStream,
+  setHandoffMediaStream,
 } from "../utils/mediaCleanup";
 import { VOICE_PERSONAS, resolveBrowserVoice } from "../utils/voicePersonas";
 
@@ -41,6 +42,13 @@ export default function InterviewReadinessPage() {
   const [faceState, setFaceState] = useState<
     "checking" | "connected" | "error" | "untested"
   >("untested");
+
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -129,7 +137,9 @@ export default function InterviewReadinessPage() {
 
     return () => {
       clearInterval(netInterval);
-      stopAllInterviewResources();
+      // Bug #9 fix: do NOT call stopAllInterviewResources() here — that would kill
+      // the camera/mic stream before LiveInterviewPage can use it.
+      // Only clean up audio analysis context and stop speech synthesis.
       window.speechSynthesis.cancel();
       if (audioContextRef.current) {
         audioContextRef.current.close();
@@ -154,9 +164,7 @@ export default function InterviewReadinessPage() {
 
   const handlePreview = (e: React.MouseEvent, personaId: string) => {
     e.stopPropagation();
-
-    if (previewingVoice) {
-    }
+    // Bug #6 fix: removed empty dead-code block
     window.speechSynthesis.cancel();
 
     const persona = VOICE_PERSONAS.find((p) => p.id === personaId);
@@ -191,7 +199,7 @@ export default function InterviewReadinessPage() {
   };
 
   const checkFaceVerification = async () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || !isMountedRef.current) return;
     setFaceState("checking");
 
     try {
@@ -211,16 +219,23 @@ export default function InterviewReadinessPage() {
       });
       const data = await res.json();
 
+      if (!isMountedRef.current) return;
+
       if (data.face_detected) {
         setFaceState("connected");
       } else {
         setFaceState("error");
-        // Retry after 2 seconds if not detected
-        setTimeout(checkFaceVerification, 2000);
+        // Bug #8 fix: guard with isMountedRef before scheduling retry
+        setTimeout(() => {
+          if (isMountedRef.current) checkFaceVerification();
+        }, 2000);
       }
     } catch (e) {
+      if (!isMountedRef.current) return;
       setFaceState("error");
-      setTimeout(checkFaceVerification, 3000);
+      setTimeout(() => {
+        if (isMountedRef.current) checkFaceVerification();
+      }, 3000);
     }
   };
 
@@ -473,16 +488,18 @@ export default function InterviewReadinessPage() {
                   >
                     Yes
                   </button>
+                  {/* Bug #5 fix: "No" now shows a retest option instead of permanently
+                      locking the Start button with no recovery path */}
                   <button
-                    onClick={() => setSpeakerState("bad")}
+                    onClick={() => {
+                      setSpeakerState("untested");
+                    }}
                     className={cn(
                       "flex-1 py-2 text-sm rounded-lg transition-colors border border-white/5",
-                      speakerState === "bad"
-                        ? "bg-red-500/20 text-red-400 border-red-500/30"
-                        : "bg-black/30 hover:bg-white/10",
+                      "bg-black/30 hover:bg-white/10",
                     )}
                   >
-                    No
+                    No — Retest
                   </button>
                 </div>
               </motion.div>
@@ -726,7 +743,15 @@ export default function InterviewReadinessPage() {
               }
               setIsStarting(true);
 
+              // CLEAR OLD INTERVIEW DATA FROM LOCALSTORAGE (keep session_id for the live interview page)
+              localStorage.removeItem("hireflow_session");
+              localStorage.removeItem("hireflow_final_report");
+              
               localStorage.setItem("hireflow_selected_voice", selectedVoice);
+
+              if (mediaStreamRef.current) {
+                setHandoffMediaStream(mediaStreamRef.current);
+              }
 
               // We simulate a tiny delay so the button animation can be seen
               setTimeout(() => {

@@ -97,6 +97,18 @@ export function registerMediaStream(stream: MediaStream) {
   (window as any).__activeMediaStreams.add(stream);
 }
 
+/** Store the readiness-page stream for reuse on the live interview page. */
+export function setHandoffMediaStream(stream: MediaStream | null) {
+  (window as any).__handoffMediaStream = stream;
+}
+
+/** Take the handoff stream once; avoids a second getUserMedia call on Windows. */
+export function consumeHandoffMediaStream(): MediaStream | null {
+  const stream = (window as any).__handoffMediaStream as MediaStream | null | undefined;
+  (window as any).__handoffMediaStream = null;
+  return stream ?? null;
+}
+
 export function registerInterval(id: number) {
   if (!(window as any).__interviewIntervals) (window as any).__interviewIntervals = new Set();
   (window as any).__interviewIntervals.add(id);

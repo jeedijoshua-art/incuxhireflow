@@ -3,7 +3,7 @@ import { motion } from "motion/react";
 import AIAvatar from "../components/interview/AIAvatar";
 import CandidateCamera from "../components/interview/CandidateCamera";
 import { useNavigate } from "react-router-dom";
-import { PhoneOff, ArrowRight, Activity, Eye, Mic, Zap, Smile, AlertTriangle } from "lucide-react";
+import { PhoneOff, ArrowRight, Activity, Mic, Zap, Smile, AlertTriangle, Eye } from "lucide-react";
 import { stopAllInterviewResources, registerInterval } from "../utils/mediaCleanup";
 import { VOICE_PERSONAS, resolveBrowserVoice } from "../utils/voicePersonas";
 
@@ -24,6 +24,9 @@ export default function LiveInterviewPage() {
   const [currentQuestion, setCurrentQuestion] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
+  const isFetchingRef = useRef(false); // Prevent multiple fetches
+  const lastSpokenQuestionRef = useRef(""); // Prevent speaking the same question twice
+  const isSpeakingRef = useRef(false); // Track if currently speaking
   const [warningCount, setWarningCount] = useState(0);
   const [showFullscreenModal, setShowFullscreenModal] = useState(false);
 
@@ -37,7 +40,6 @@ export default function LiveInterviewPage() {
   });
 
   const [violations, setViolations] = useState<string[]>([]);
-  const wsRef = useRef<WebSocket | null>(null);
   const isEndingInterviewRef = useRef(false);
   
   const [transcript, setTranscript] = useState("");
@@ -45,31 +47,34 @@ export default function LiveInterviewPage() {
   const [speechStatus, setSpeechStatus] = useState("Ready to capture your answer");
   
   // Speech Recognition State
-  const recognitionRef = useRef<any>(null);
-  const recognitionTimeoutRef = useRef<number | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const finalTranscriptRef = useRef<string>("");
-  const interimTranscriptRef = useRef<string>("");
   const isRecordingRef = useRef<boolean>(false);
   const telemetryIntervalRef = useRef<number | null>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const transcriptRef = useRef<string>("");
   const hasFetchedInitialQuestion = useRef(false);
+  const recognitionRef = useRef<any>(null);
+  // Bug #12 fix: track current question index in a ref so persistSessionTurn
+  // always captures the correct value without stale closure issues
+  const questionIndexRef = useRef(0);
 
-  const cleanupRecognition = (recognition: any) => {
-    if (!recognition) return;
-    try {
-      recognition.onresult = null;
-      recognition.onend = null;
-      recognition.onerror = null;
-      recognition.onstart = null;
-    } catch (e) {
-      console.warn("[RECOGNITION_CLEANUP_FAILED]", e);
-    }
-    if ((window as any).__activeSpeechRecognitions) {
-      (window as any).__activeSpeechRecognitions.delete(recognition);
-    }
-  };
+  // Bug #10 fix: actually start the countdown timer with setInterval
+  useEffect(() => {
+    const timerId = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timerId);
+          handleEndInterview();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timerId);
+  }, []);
 
   // Auto-scroll textarea
   useEffect(() => {
@@ -108,26 +113,31 @@ export default function LiveInterviewPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-
   const handleFullscreenChange = () => {
     if (isEndingInterviewRef.current) return;
     if (!document.fullscreenElement) {
       console.log("[FULLSCREEN_EXIT]");
       setViolations(prev => [...prev, `Exited fullscreen at ${new Date().toLocaleTimeString()}`]);
-      
+
+      // Bug #14 fix: compute new count outside setState, then call the side effect separately
       setWarningCount(prev => {
         const newCount = prev + 1;
         console.log(`[WARNING_COUNT] ${newCount}`);
-        if (newCount >= 3) {
-          console.log("[INTERVIEW_TERMINATED]");
-          handleEndInterview();
-        } else {
-          setShowFullscreenModal(true);
-        }
         return newCount;
       });
     }
   };
+
+  // Bug #14 fix: watch warningCount in a separate effect to trigger the side effects
+  useEffect(() => {
+    if (warningCount === 0) return;
+    if (warningCount >= 3) {
+      console.log("[INTERVIEW_TERMINATED]");
+      handleEndInterview();
+    } else {
+      setShowFullscreenModal(true);
+    }
+  }, [warningCount]);
 
   const handleVisibilityChange = () => {
     if (isEndingInterviewRef.current) return;
@@ -142,12 +152,18 @@ export default function LiveInterviewPage() {
   };
 
   // Fetch Next Question Helper
-  const fetchNextQuestion = async (sessionId: string) => {
+  const fetchNextQuestion = async (sessionId: string, skipSpeak: boolean = false) => {
+    if (isFetchingRef.current) {
+      console.log("[FETCH_SKIPPED] Already fetching a question");
+      return;
+    }
+    
+    isFetchingRef.current = true;
     setIsProcessing(true);
     setInterviewState("thinking");
     try {
       const payload = { session_id: sessionId };
-      console.log(`[NEXT_QUESTION] Requesting next question. Current index: ${questionIndex}`);
+      console.log("[NEXT_QUESTION] Requesting next question. Current index:", questionIndex);
       console.log("[DEBUG] Fetch Next Question Request URL: /interview/next-question");
       console.log("[DEBUG] Fetch Next Question Payload:", payload);
       
@@ -176,38 +192,62 @@ export default function LiveInterviewPage() {
       // Use backend index if provided (backend is 0-indexed), otherwise increment
       if (data.index !== undefined) {
         setQuestionIndex(data.index + 1);
+        questionIndexRef.current = data.index + 1;
       } else {
-        setQuestionIndex(prev => prev + 1);
+        setQuestionIndex(prev => {
+          const next = prev + 1;
+          questionIndexRef.current = next;
+          return next;
+        });
       }
       
       setCurrentQuestion(data.question);
       setInterviewState("speaking");
-      speakQuestion(data.question);
+      if (!skipSpeak) {
+        console.log("[SPEAK_QUESTION] About to speak next question");
+        lastSpokenQuestionRef.current = ""; // Reset for new question
+        isSpeakingRef.current = false;
+        speakQuestion(data.question);
+      }
     } catch (err) {
       console.error(err);
       alert("Failed to fetch next question");
     } finally {
       setIsProcessing(false);
+      isFetchingRef.current = false;
     }
   };
 
   const speakQuestion = (text: string) => {
+    console.log("[SPEAK_QUESTION] Starting speak function for:", text);
+    
+    // Check if we already spoke this question
+    if (lastSpokenQuestionRef.current === text || isSpeakingRef.current) {
+      console.log("[SPEAK_SKIPPED] Already spoke or currently speaking this question");
+      return;
+    }
+    
+    // Cancel any previous speech
     window.speechSynthesis.cancel();
+    
+    // Set our flags
+    lastSpokenQuestionRef.current = text;
+    isSpeakingRef.current = true;
+    
+    // Ensure voices are loaded
+    try {
+      window.speechSynthesis.getVoices();
+    } catch (e) {
+      console.warn("[VOICE_LOAD_ERROR]", e);
+    }
+    
+    // Create utterance
     const utterance = new SpeechSynthesisUtterance(text);
     utteranceRef.current = utterance;
     
     const personaId = localStorage.getItem("hireflow_selected_voice") || "david";
     console.log(`[VOICE_SELECTED] ${personaId}`);
-    console.log(`[VOICE_LOADED] ${personaId}`);
     
-    const voice = resolveBrowserVoice(personaId);
-    if (voice) {
-      utterance.voice = voice;
-      console.log(`[VOICE_RESOLVED] ${voice.name}`);
-    } else {
-      console.log(`[VOICE_RESOLVED] Default`);
-    }
-
     const persona = VOICE_PERSONAS.find(p => p.id === personaId);
     utterance.rate = 0.95;
     utterance.volume = 1.0;
@@ -227,6 +267,7 @@ export default function LiveInterviewPage() {
       console.log("[TTS_END]");
       console.log("[MIC_UNLOCKED]");
       setIsAiSpeaking(false);
+      isSpeakingRef.current = false;
     };
 
     utterance.onerror = (e) => {
@@ -234,8 +275,19 @@ export default function LiveInterviewPage() {
       console.error("Error speaking", e);
       console.log("[MIC_UNLOCKED]");
       setIsAiSpeaking(false);
+      isSpeakingRef.current = false;
     };
 
+    // Set voice
+    const voice = resolveBrowserVoice(personaId);
+    if (voice) {
+      utterance.voice = voice;
+      console.log(`[VOICE_RESOLVED] ${voice.name}`);
+    } else {
+      console.log(`[VOICE_RESOLVED] Default`);
+    }
+
+    // Speak!
     window.speechSynthesis.speak(utterance);
   };
 
@@ -248,6 +300,25 @@ export default function LiveInterviewPage() {
     
     // Ensure voices are loaded into memory early
     window.speechSynthesis.getVoices();
+    
+    // RESET ALL INTERVIEW STATES WHEN PAGE LOADS!
+    // Clear ALL previous interview data from localStorage - every interview is independent
+    localStorage.removeItem("hireflow_session");
+    localStorage.removeItem("hireflow_final_report");
+    
+    setTranscript("");
+    transcriptRef.current = "";
+    finalTranscriptRef.current = "";
+    setQuestionIndex(0);
+    questionIndexRef.current = 0;
+    setCurrentQuestion("");
+    setViolations([]);
+    setWarningCount(0);
+    hasFetchedInitialQuestion.current = false;
+    lastSpokenQuestionRef.current = "";
+    isSpeakingRef.current = false;
+    isFetchingRef.current = false;
+    isRecordingRef.current = false;
 
     const sessionId = localStorage.getItem("hireflow_session_id");
     if (!sessionId) {
@@ -268,18 +339,7 @@ export default function LiveInterviewPage() {
     };
     requestFullscreen();
 
-    // Setup Telemetry Polling (Phase 10) instead of WebSocket
-    telemetryIntervalRef.current = window.setInterval(() => {
-       // Frame capture is triggered via onFrameCaptured from CandidateCamera
-    }, 2000);
-
-    // Timer
-    const timer = setInterval(() => {
-      setTimeLeft(t => Math.max(0, t - 1));
-    }, 1000);
-    registerInterval(timer as unknown as number);
-
-    // Violation Tracking
+    // Setup violation listeners
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleBlur);
@@ -288,12 +348,14 @@ export default function LiveInterviewPage() {
     if (!hasFetchedInitialQuestion.current) {
       hasFetchedInitialQuestion.current = true;
       console.log("[INTERVIEW_START] Initializing interview for session:", sessionId);
-      fetchNextQuestion(sessionId);
+      // Wait a tiny bit to make sure voices are loaded
+      setTimeout(() => {
+        fetchNextQuestion(sessionId, false);
+      }, 300);
     }
     
     return () => {
-      clearInterval(timer);
-      if (telemetryIntervalRef.current) clearInterval(telemetryIntervalRef.current);
+      clearInterval(Number(telemetryIntervalRef.current));
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", handleBlur);
@@ -302,7 +364,6 @@ export default function LiveInterviewPage() {
       if (recognitionRef.current) {
         console.log("[RECOGNITION_STOPPED]");
         try { recognitionRef.current.stop(); } catch(e){}
-        console.log("[RECOGNITION_ABORTED]");
         try { recognitionRef.current.abort(); } catch(e){}
         recognitionRef.current.onresult = null;
         recognitionRef.current.onend = null;
@@ -324,49 +385,12 @@ export default function LiveInterviewPage() {
   };
 
   const normalizeTranscriptText = (value: string) => {
-    return value
-      .replace(/\s+/g, " ")
-      .replace(/\s([,.;:!?])/g, "$1")
-      .trim();
+    return value.trim();
   };
 
-  const correctSpokenText = (value: string) => {
-    return value
-      .replace(/\bteh\b/gi, "the")
-      .replace(/\bthier\b/gi, "their")
-      .replace(/\bthier\b/gi, "their")
-      .replace(/\brecieve\b/gi, "receive")
-      .replace(/\bseperate\b/gi, "separate")
-      .replace(/\boccured\b/gi, "occurred")
-      .replace(/\bdefinately\b/gi, "definitely")
-      .replace(/\benviroment\b/gi, "environment")
-      .replace(/\bcommited\b/gi, "committed")
-      .replace(/\bimprovment\b/gi, "improvement")
-      .replace(/\bbecuase\b/gi, "because")
-      .replace(/\bgoverment\b/gi, "government")
-      .replace(/\bwierd\b/gi, "weird")
-      .replace(/\bintial\b/gi, "initial")
-      .replace(/\bwich\b/gi, "which")
-      .replace(/\bwht\b/gi, "what")
-      .replace(/\btaht\b/gi, "that")
-      .replace(/\bim\b/gi, "I")
-      .replace(/\bi\b/g, (match, offset) => (offset === 0 ? "I" : match));
-  };
-
-  const updateTranscript = (value: string) => {
-    const normalized = normalizeTranscriptText(value);
-    transcriptRef.current = normalized;
-    setTranscript(normalized);
-  };
-
-  const appendTranscriptChunk = (chunk: string) => {
-    const cleaned = correctSpokenText(normalizeTranscriptText(chunk));
-    if (!cleaned) return;
-
-    const base = finalTranscriptRef.current.trim();
-    const nextValue = base ? `${base} ${cleaned}` : cleaned;
-    finalTranscriptRef.current = nextValue;
-    updateTranscript(nextValue);
+  const updateTranscript = (newText: string) => {
+    transcriptRef.current = newText;
+    setTranscript(newText);
   };
 
   const persistSessionTurn = (turnTranscript: string) => {
@@ -376,8 +400,9 @@ export default function LiveInterviewPage() {
     try {
       const existing = JSON.parse(localStorage.getItem("hireflow_session") || "[]");
       const sessionData = Array.isArray(existing) ? existing : [];
+      // Bug #12 fix: use ref instead of state to get the correct question index
       sessionData.push({
-        question: questionIndex,
+        question: questionIndexRef.current,
         transcript: cleanTranscript,
         telemetry,
         violations,
@@ -389,8 +414,13 @@ export default function LiveInterviewPage() {
   };
 
   const handleNextQuestion = async () => {
+    if (isFetchingRef.current) {
+      console.log("[SUBMIT_SKIPPED] Already processing");
+      return;
+    }
+    
     const answerText = transcriptRef.current.trim();
-    if (!answerText) return;
+    // Allow submitting even if empty (to handle unanswered questions)
     const sessionId = localStorage.getItem("hireflow_session_id");
     if (!sessionId) return;
     
@@ -401,7 +431,12 @@ export default function LiveInterviewPage() {
     if (recognitionRef.current) {
       console.log("[RECOGNITION_STOPPED]");
       try { recognitionRef.current.stop(); } catch(e){}
-      console.log("[RECOGNITION_STOP_PENDING]");
+      try { recognitionRef.current.abort(); } catch(e){}
+      recognitionRef.current.onresult = null;
+      recognitionRef.current.onend = null;
+      recognitionRef.current.onerror = null;
+      recognitionRef.current.onstart = null;
+      recognitionRef.current = null;
     }
     isRecordingRef.current = false;
     setInterviewState("thinking");
@@ -437,14 +472,337 @@ export default function LiveInterviewPage() {
       }
       
       persistSessionTurn(answerText);
+      // Clear BOTH transcript refs completely before next question - no answer carryover
       updateTranscript("");
+      transcriptRef.current = "";
+      finalTranscriptRef.current = "";
       
-      // 2. Fetch the next question
-      await fetchNextQuestion(sessionId);
+      // 2. Fetch the next question - don't skip speaking!
+      console.log("[FETCH_NEXT_AND_SPEAK]");
+      await fetchNextQuestion(sessionId, false);
     } catch (e) {
       console.error(e);
       alert("Failed to submit answer");
       setIsProcessing(false);
+    }
+  };
+
+  // Browser-native speech recognition (primary - no backend API key required).
+  // Also records audio in parallel so it can be sent to the backend Whisper STT
+  // for a higher-accuracy final transcript when the user stops speaking.
+  const startBrowserSpeechRecognition = async (): Promise<boolean> => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return false;
+
+    // Stop any previous recognition
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch(e){}
+      try { recognitionRef.current.abort(); } catch(e){}
+      recognitionRef.current = null;
+    }
+
+    // Stop any previous recorder
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      mediaRecorderRef.current.stop();
+    }
+
+    isRecordingRef.current = false;
+    audioChunksRef.current = [];
+
+    let stream: MediaStream | null = null;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (e) {
+      console.error("[MIC_ERROR]", e);
+      setSpeechStatus("Failed to access microphone.");
+      return true; // Return true so we don't immediately fall back again
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    // Use the browser locale for better accent/model matching, default to en-US
+    recognition.lang = navigator.language?.startsWith("en")
+      ? navigator.language
+      : "en-US";
+    recognitionRef.current = recognition;
+
+    let accumulatedInterim = "";
+
+    recognition.onstart = () => {
+      console.log("[BROWSER_SPEECH_STARTED]");
+      isRecordingRef.current = true;
+      setInterviewState("listening");
+      setSpeechStatus("🎤 Listening... Speak now!");
+    };
+
+    recognition.onresult = (event: any) => {
+      let interim = "";
+      let finalChunk = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i][0];
+        const resultTranscript = result.transcript;
+        if (event.results[i].isFinal) {
+          finalChunk += resultTranscript + " ";
+        } else {
+          interim += resultTranscript;
+        }
+      }
+      accumulatedInterim = interim;
+
+      if (finalChunk.trim()) {
+        const currentFinal = finalTranscriptRef.current.trim();
+        const updatedFinal = [currentFinal, finalChunk.trim()].filter(Boolean).join(" ").trim();
+        finalTranscriptRef.current = updatedFinal;
+      }
+
+      const displayText = [finalTranscriptRef.current, accumulatedInterim.trim()]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+      transcriptRef.current = finalTranscriptRef.current;
+      setTranscript(displayText);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("[BROWSER_SPEECH_ERROR]", event.error);
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        isRecordingRef.current = false;
+        setSpeechStatus("Microphone permission denied. Check browser settings.");
+      } else if (event.error === "no-speech") {
+        // Don't stop recording on no-speech; the user may simply be pausing
+        setSpeechStatus("No speech heard. Keep speaking...");
+      } else if (event.error === "aborted") {
+        // Usually triggered by our own stop/abort; ignore
+      } else {
+        isRecordingRef.current = false;
+        setSpeechStatus("Speech recognition error.");
+      }
+    };
+
+    recognition.onend = () => {
+      console.log("[BROWSER_SPEECH_ENDED]");
+      if (isRecordingRef.current && recognitionRef.current === recognition) {
+        // The browser ended the session (often after silence). Restart quickly
+        // so the microphone feels continuously active.
+        try {
+          recognition.start();
+          return;
+        } catch(e) {
+          // If restart fails, fall through to cleanup
+        }
+      }
+
+      // Commit any remaining interim text as final so nothing is lost
+      if (accumulatedInterim.trim()) {
+        const currentFinal = finalTranscriptRef.current.trim();
+        const updatedFinal = [currentFinal, accumulatedInterim.trim()].filter(Boolean).join(" ").trim();
+        finalTranscriptRef.current = updatedFinal;
+        accumulatedInterim = "";
+      }
+
+      transcriptRef.current = finalTranscriptRef.current;
+      setTranscript(finalTranscriptRef.current);
+      // Don't set "Answer captured" here; the recorder onstop will refine with backend STT
+      recognitionRef.current = null;
+    };
+
+    // Start parallel audio recording for backend refinement
+    const mimeType = MediaRecorder.isTypeSupported("audio/webm")
+      ? "audio/webm"
+      : MediaRecorder.isTypeSupported("audio/mp4")
+      ? "audio/mp4"
+      : "";
+    const mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+    mediaRecorderRef.current = mediaRecorder;
+
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        audioChunksRef.current.push(event.data);
+      }
+    };
+
+    mediaRecorder.onerror = (event) => {
+      console.error("[MEDIA_RECORDER_ERROR]", event);
+    };
+
+    mediaRecorder.onstop = async () => {
+      console.log("[MEDIA_RECORDER_STOPPED]");
+      isRecordingRef.current = false;
+      setInterviewState("thinking");
+
+      const recordedType = mediaRecorder.mimeType || "audio/webm";
+      const extension = recordedType.includes("mp4") ? ".mp4" : ".webm";
+      const audioBlob = new Blob(audioChunksRef.current, { type: recordedType });
+      console.log("[AUDIO_BLOB] size:", audioBlob.size, "type:", audioBlob.type);
+
+      if (audioBlob.size < 1000) {
+        setSpeechStatus("Answer captured");
+        stream?.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
+      const browserFinal = finalTranscriptRef.current.trim();
+      setSpeechStatus("Refining with AI...");
+
+      const formData = new FormData();
+      formData.append("file", audioBlob, `recording${extension}`);
+      formData.append("session_id", localStorage.getItem("hireflow_session_id") || "");
+
+      try {
+        const res = await fetch("/interview/speech-to-text", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const backendTranscript = (data.transcript || "").trim();
+          console.log("[BACKEND_TRANSCRIPT]", backendTranscript);
+
+          if (backendTranscript) {
+            // Prefer the backend transcript because Whisper is more accurate.
+            // Keep the browser transcript only if the backend returned nothing.
+            const refined = [browserFinal, backendTranscript]
+              .filter(Boolean)
+              .join(" ")
+              .trim();
+            finalTranscriptRef.current = backendTranscript || browserFinal;
+            transcriptRef.current = finalTranscriptRef.current;
+            setTranscript(finalTranscriptRef.current);
+            setSpeechStatus("Answer captured (refined)");
+          } else {
+            setSpeechStatus("Answer captured");
+          }
+        } else if (res.status === 503) {
+          // Backend STT not configured (no API key) — keep browser transcript
+          console.log("[BACKEND_STT_NOT_CONFIGURED] Keeping browser transcript.");
+          setSpeechStatus("Answer captured");
+        } else {
+          const errText = await res.text();
+          console.error("[STT_HTTP_ERROR]", res.status, errText);
+          setSpeechStatus("Answer captured");
+        }
+      } catch (e) {
+        console.error("[STT_ERROR]", e);
+        setSpeechStatus("Answer captured");
+      }
+
+      stream?.getTracks().forEach((track) => track.stop());
+    };
+
+    setSpeechStatus("Initializing microphone...");
+    try {
+      recognition.start();
+      mediaRecorder.start();
+      return true;
+    } catch (e) {
+      console.error("[BROWSER_SPEECH_START_FAILED]", e);
+      try { mediaRecorder.stop(); } catch(e2){}
+      stream?.getTracks().forEach((track) => track.stop());
+      recognitionRef.current = null;
+      mediaRecorderRef.current = null;
+      return false;
+    }
+  };
+
+  // Server-side STT fallback using Groq Whisper
+  const startMediaRecorderFallback = async () => {
+    // Stop any existing recorder
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      mediaRecorderRef.current.stop();
+    }
+
+    isRecordingRef.current = false;
+    audioChunksRef.current = [];
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm")
+        ? "audio/webm"
+        : MediaRecorder.isTypeSupported("audio/mp4")
+        ? "audio/mp4"
+        : "";
+      const mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstart = () => {
+        console.log("[MEDIA_RECORDER_STARTED]");
+        isRecordingRef.current = true;
+        setInterviewState("listening");
+      };
+
+      mediaRecorder.onerror = (event) => {
+        console.error("[MEDIA_RECORDER_ERROR]", event);
+        setSpeechStatus("Recording error. Please try again.");
+        isRecordingRef.current = false;
+        stream.getTracks().forEach((track) => track.stop());
+      };
+
+      mediaRecorder.onstop = async () => {
+        console.log("[MEDIA_RECORDER_STOPPED]");
+        isRecordingRef.current = false;
+        setInterviewState("thinking");
+        setSpeechStatus("Processing speech...");
+
+        const recordedType = mediaRecorder.mimeType || "audio/webm";
+        const extension = recordedType.includes("mp4") ? ".mp4" : ".webm";
+        const audioBlob = new Blob(audioChunksRef.current, { type: recordedType });
+        console.log("[AUDIO_BLOB] size:", audioBlob.size, "type:", audioBlob.type);
+
+        if (audioBlob.size < 1000) {
+          setSpeechStatus("Recording too short. Nothing was captured.");
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", audioBlob, `recording${extension}`);
+        formData.append("session_id", localStorage.getItem("hireflow_session_id") || "");
+
+        try {
+          const res = await fetch("/interview/speech-to-text", {
+            method: "POST",
+            body: formData,
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const newTranscript = data.transcript;
+
+            if (newTranscript) {
+              const currentFinal = finalTranscriptRef.current.trim();
+              const displayText = [currentFinal, newTranscript].filter(Boolean).join(" ").trim();
+
+              finalTranscriptRef.current = displayText;
+              transcriptRef.current = displayText;
+              setTranscript(displayText);
+            }
+            setSpeechStatus("Answer captured");
+          } else {
+            const errText = await res.text();
+            console.error("[STT_HTTP_ERROR]", res.status, errText);
+            setSpeechStatus(`Speech error: ${res.status === 500 ? "Server transcription failed" : "Failed to transcribe"}`);
+          }
+        } catch (e) {
+          console.error("[STT_ERROR]", e);
+          setSpeechStatus("Speech error: Failed to connect to transcription service");
+        }
+
+        stream.getTracks().forEach((track) => track.stop());
+      };
+
+      mediaRecorder.start();
+    } catch (e) {
+      console.error("[MIC_ERROR]", e);
+      setSpeechStatus("Failed to access microphone.");
     }
   };
 
@@ -454,151 +812,31 @@ export default function LiveInterviewPage() {
       return;
     }
 
-    const supported = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!supported) {
-      alert("Speech recognition is not supported in this browser.");
-      setSpeechStatus("Speech recognition not supported.");
+    // Primary: browser speech recognition (real-time, no API key)
+    if (await startBrowserSpeechRecognition()) {
       return;
     }
 
-    setSpeechStatus("Listening for your answer...");
-
-    if (recognitionRef.current) {
-      console.log("[CLEANUP_EXISTING_RECOGNITION]");
-      try { recognitionRef.current.stop(); } catch (e) { console.warn(e); }
-      cleanupRecognition(recognitionRef.current);
-      recognitionRef.current = null;
-      isRecordingRef.current = false;
-    }
-
-    console.log("[NEW_RECOGNITION_CREATED]");
-    const recognition = new supported();
-    if (!(window as any).__activeSpeechRecognitions) {
-      (window as any).__activeSpeechRecognitions = new Set();
-    }
-    (window as any).__activeSpeechRecognitions.add(recognition);
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-    recognition.lang = window.navigator.language || "en-US";
-
-    recognition.onstart = () => {
-      console.log("[RECOGNITION_STARTED]");
-      isRecordingRef.current = true;
-      setSpeechStatus("Listening for your answer...");
-      setInterviewState("listening");
-    };
-
-    recognition.onaudiostart = () => {
-      console.log("[AUDIO_STARTED]");
-    };
-
-    recognition.onaudioend = () => {
-      console.log("[AUDIO_ENDED]");
-    };
-
-    recognition.onspeechstart = () => {
-      console.log("[SPEECH_STARTED]");
-    };
-
-    recognition.onresult = (event: any) => {
-      console.log("[RECOGNITION_EVENT]", event);
-      if (!event.results || event.results.length === 0) {
-        console.log("[RECOGNITION_EMPTY_RESULT]");
-        return;
-      }
-
-      let finalTranscript = finalTranscriptRef.current.trim();
-      const interimChunks: string[] = [];
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-        const transcriptText = result[0]?.transcript || "";
-        const normalizedText = normalizeTranscriptText(transcriptText);
-        const cleanedText = correctSpokenText(normalizedText || transcriptText);
-        if (!cleanedText) continue;
-
-        if (result.isFinal) {
-          finalTranscript = finalTranscript ? `${finalTranscript} ${cleanedText}` : cleanedText;
-          console.log("[FINAL_RESULT]", cleanedText);
-        } else {
-          interimChunks.push(cleanedText);
-          console.log("[INTERIM_RESULT]", cleanedText);
-        }
-      }
-
-      finalTranscriptRef.current = finalTranscript;
-      const interimTranscript = interimChunks.join(" ").trim();
-      interimTranscriptRef.current = interimTranscript;
-      const displayText = [finalTranscript, interimTranscript].filter(Boolean).join(" ").trim();
-
-      transcriptRef.current = displayText;
-      setTranscript(displayText);
-      console.log("[TRANSCRIPT_DISPLAY]", displayText);
-      setSpeechStatus(interimTranscript ? "Listening for your answer..." : "Answer captured");
-    };
-
-    recognition.onnomatch = () => {
-      console.log("[RECOGNITION_NO_MATCH]");
-      setSpeechStatus("No speech recognized. Please try again.");
-    };
-
-    recognition.onend = () => {
-      console.log("[RECOGNITION_ONEND] isRecording=", isRecordingRef.current);
-      cleanupRecognition(recognition);
-      recognitionRef.current = null;
-      if (!isRecordingRef.current) {
-        setSpeechStatus("Recording stopped");
-        return;
-      }
-      setSpeechStatus("Speech recognition ended. Click Start to speak again.");
-      setInterviewState("thinking");
-    };
-
-    recognition.onerror = (event: any) => {
-      console.error("[SPEECH_ERROR]", event.error);
-      setSpeechStatus(`Speech error: ${event.error}`);
-      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-        isRecordingRef.current = false;
-        setInterviewState("thinking");
-      }
-    };
-
-    finalTranscriptRef.current = transcriptRef.current.trim();
-    recognitionRef.current = recognition;
-    try {
-      recognition.start();
-    } catch (e) {
-      console.error("[RECOGNITION_START_FAILED]", e);
-      setSpeechStatus("Failed to start speech recognition. Please refresh and try again.");
-      return;
-    }
+    // Fallback: MediaRecorder + server-side Whisper
+    await startMediaRecorderFallback();
   };
 
   const onStopRecording = () => {
     console.log("[STOP_BUTTON_CLICKED]");
-    setSpeechStatus("Recording stopped");
-    if (recognitionTimeoutRef.current) {
-      window.clearTimeout(recognitionTimeoutRef.current);
-      recognitionTimeoutRef.current = null;
-    }
-
     if (recognitionRef.current) {
-      console.log("[RECOGNITION_STOP_CALL]");
-      try {
-        recognitionRef.current.stop();
-      } catch (e) {
-        console.error("[RECOGNITION_STOP_ERROR]", e);
-      }
-      // Leave recognitionRef.current intact until onend fires so final results are delivered.
+      isRecordingRef.current = false;
+      try { recognitionRef.current.stop(); } catch(e){}
     }
-
-    isRecordingRef.current = false;
-    setInterviewState("thinking");
-    setIsProcessingSpeech(true);
-    setTimeout(() => {
-      setIsProcessingSpeech(false);
-    }, 800);
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    if (!recognitionRef.current && (!mediaRecorderRef.current || mediaRecorderRef.current.state !== "recording")) {
+      setSpeechStatus("Recording stopped");
+    }
   };
 
   const onTranscriptUpdate = (newText: string) => {
@@ -612,7 +850,7 @@ export default function LiveInterviewPage() {
   };
   // ----------------------------------------------------
 
-  const handleEndInterview = (finalReport?: any) => {
+  const handleEndInterview = async (finalReport?: any) => {
     if (isEndingInterviewRef.current) return;
     isEndingInterviewRef.current = true;
 
@@ -629,19 +867,38 @@ export default function LiveInterviewPage() {
 
       if (finalReport) {
         localStorage.setItem("hireflow_final_report", JSON.stringify(finalReport));
+      } else {
+        // Force the backend to end the interview and generate a report now
+        setIsProcessing(true);
+        const sessionId = localStorage.getItem("hireflow_session_id");
+        if (sessionId) {
+          try {
+            console.log("[REPORT_GENERATION] Requesting final report generation for early end");
+            const res = await fetch("/interview/end", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ 
+                session_id: sessionId, 
+                answer: currentTranscript 
+              })
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.report) {
+                localStorage.setItem("hireflow_final_report", JSON.stringify(data.report));
+                console.log("[REPORT_GENERATION] Early end report saved to localStorage");
+              }
+            }
+          } catch (e) {
+            console.error("Failed to generate final report on end", e);
+          }
+        }
       }
 
-      if (recognitionRef.current) {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
         console.log("[RECOGNITION_STOPPED]");
-        try { recognitionRef.current.stop(); } catch(e){}
-        console.log("[RECOGNITION_ABORTED]");
-        try { recognitionRef.current.abort(); } catch(e){}
-        recognitionRef.current.onresult = null;
-        recognitionRef.current.onend = null;
-        recognitionRef.current.onerror = null;
-        recognitionRef.current.onstart = null;
-        console.log("[RECOGNITION_DESTROYED]");
-        recognitionRef.current = null;
+        try { mediaRecorderRef.current.stop(); } catch(e){}
+        mediaRecorderRef.current = null;
       }
       isRecordingRef.current = false;
       console.log("[MIC_STOPPED]");
@@ -680,7 +937,7 @@ export default function LiveInterviewPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-transparent p-6">
+    <div className="min-h-screen flex flex-col bg-[#030712] p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
           <div className="flex items-center gap-2.5 mb-2">
@@ -707,7 +964,7 @@ export default function LiveInterviewPage() {
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6 min-h-0">
         {/* Left: AI Avatar */}
-        <div className="lg:col-span-1 bg-[rgba(10,15,25,0.72)] backdrop-blur-md border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-2xl p-6 flex flex-col items-center justify-center relative overflow-hidden">
+        <div className="lg:col-span-1 bg-[#0a0f19] border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-2xl p-6 flex flex-col items-center justify-center relative overflow-hidden">
           <AIAvatar state={interviewState} />
           <div className="mt-8 text-center text-zinc-400 text-sm">
             {isAiSpeaking ? "AI is asking the question..." : interviewState === "speaking" ? "AI is speaking..." : interviewState === "thinking" ? "AI is thinking..." : "AI is listening..."}
@@ -715,19 +972,24 @@ export default function LiveInterviewPage() {
         </div>
 
         {/* Center: Current Question */}
-        <div className="lg:col-span-2 bg-[rgba(10,15,25,0.72)] backdrop-blur-md border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-2xl p-8 flex flex-col justify-between">
+        <div className="lg:col-span-2 bg-[#0a0f19] border border-[rgba(45,212,191,0.08)] rounded-2xl p-8 flex flex-col justify-between">
           <div>
             <div className="text-teal-400 text-sm font-semibold mb-4 uppercase tracking-wider">Question {questionIndex}</div>
-            <h2 className="text-2xl text-zinc-100 leading-relaxed font-medium">
+            <h2 className="text-2xl text-zinc-100 leading-relaxed font-medium mb-4">
               "{currentQuestion || "Loading question..."}"
             </h2>
             
             {currentQuestion && (
               <button 
-                onClick={() => speakQuestion(currentQuestion)}
-                className="mt-4 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm font-medium rounded-lg transition-colors"
+                onClick={() => {
+                  console.log("[REPLAY_CLICKED] Replaying question");
+                  lastSpokenQuestionRef.current = ""; // Allow replaying
+                  isSpeakingRef.current = false;
+                  speakQuestion(currentQuestion);
+                }}
+                className="px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium rounded-lg transition-colors shadow-lg shadow-teal-900/20"
               >
-                Replay Audio
+                🔊 Replay Question
               </button>
             )}
           </div>
@@ -785,20 +1047,21 @@ export default function LiveInterviewPage() {
                     Clear Answer
                   </button>
                 </div>
+                <div className="text-xs text-zinc-500">{speechStatus}</div>
               </div>
             </div>
 
           <div className="flex items-center justify-end pt-8 mt-6 border-t border-white/[0.06]">
             <div className="flex flex-wrap items-center gap-3 justify-end">
               <button 
-                onClick={handleEndInterview}
+                onClick={() => handleEndInterview()}
                 className="px-6 py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-medium rounded-xl transition-colors flex items-center gap-2"
               >
                 <PhoneOff className="w-4 h-4" />
                 End Interview
               </button>
               <button 
-                disabled={isProcessing || !transcript.trim()}
+                disabled={isProcessing}
                 onClick={handleNextQuestion}
                 className="px-6 py-3 bg-white hover:bg-zinc-200 disabled:opacity-50 text-zinc-900 font-medium rounded-xl transition-colors flex items-center gap-2"
               >
@@ -813,7 +1076,7 @@ export default function LiveInterviewPage() {
         <div className="lg:col-span-1 flex flex-col gap-6">
           <CandidateCamera onFrameCaptured={handleFrameCaptured} />
           
-          <div className="bg-[rgba(10,15,25,0.72)] backdrop-blur-md border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-2xl flex-1 p-6 flex flex-col">
+          <div className="bg-[#0a0f19] border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-2xl flex-1 p-6 flex flex-col">
             <h3 className="text-sm font-medium text-zinc-400 mb-6 uppercase tracking-wider flex items-center gap-2">
               <Activity className="w-4 h-4 text-teal-400" /> Live Telemetry
             </h3>

@@ -8,7 +8,20 @@ class SpeechToText:
     Transcribes candidate spoken audio to text using Groq Whisper Large v3 API.
     """
     def __init__(self):
-        load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+        # Search for .env in common locations so the key is found regardless of
+        # which module is imported first.
+        candidate_paths = [
+            os.path.join(os.path.dirname(__file__), ".env"),
+            os.path.join(os.path.dirname(__file__), "..", ".env"),
+            os.path.join(os.path.dirname(__file__), "..", "api", ".env"),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"),
+        ]
+        for env_path in candidate_paths:
+            if os.path.isfile(env_path):
+                load_dotenv(env_path)
+                if os.getenv("GROQ_API_KEY"):
+                    break
+
         api_key = os.getenv("GROQ_API_KEY")
         self.client = Groq(api_key=api_key) if api_key else None
         if not self.client:

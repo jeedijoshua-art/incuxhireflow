@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import json
 import argparse
@@ -10,10 +11,10 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from resume_parser import ResumeParser
 from skill_extractor import SkillExtractor
-from experience_analyzer import ExperienceAnalyzer
-from candidate_scorer import CandidateScorer
+from experience_analyzer import ExperienceAnalyzer, ExperienceAnalysisResult, WorkExperienceItem
+from candidate_scorer import CandidateScorer, CandidateScoreResult
 from job_matcher import JobMatcher
-from question_generator import QuestionGenerator
+from question_generator import QuestionGenerator, GeneratedQuestion
 
 # Define the exact output format requested by the user
 class ResumeAnalyzerOutput(BaseModel):
@@ -21,22 +22,134 @@ class ResumeAnalyzerOutput(BaseModel):
     experience_years: int
     candidate_score: int
 
+# Common technical and professional skills for rule-based fallback extraction
+COMMON_SKILLS = {
+    "python", "javascript", "java", "c++", "c#", "go", "rust", "typescript", "ruby", "php",
+    "swift", "kotlin", "scala", "r", "matlab", "sql", "nosql", "html", "css", "sass", "less",
+    "react", "vue", "angular", "svelte", "next.js", "nuxt", "django", "flask", "fastapi",
+    "spring", "express", "node.js", "nodejs", ".net", "laravel", "rails",
+    "tensorflow", "pytorch", "keras", "scikit-learn", "pandas", "numpy", "opencv",
+    "aws", "azure", "gcp", "google cloud", "docker", "kubernetes", "jenkins", "git",
+    "postgresql", "mysql", "mongodb", "redis", "sqlite", "oracle", "dynamodb",
+    "graphql", "rest", "api", "microservices", "kafka", "rabbitmq", "celery",
+    "linux", "bash", "powershell", "terraform", "ansible", "ci/cd", "devops",
+    "machine learning", "deep learning", "nlp", "computer vision", "data analysis",
+    "agile", "scrum", "kanban", "jira", "confluence", "leadership", "communication",
+    "problem solving", "teamwork", "project management", "product management"
+}
+
+_GENERIC_QUESTIONS = [
+    "Tell me about yourself and your background in {role}.",
+    "What motivated you to apply for this {role} position?",
+    "Describe a challenging project you worked on and how you handled it.",
+    "What are your strongest technical skills relevant to {role}?",
+    "How do you stay updated with the latest technologies and trends?",
+    "Tell me about a time you had to debug a difficult issue.",
+    "How do you approach learning a new technology or framework?",
+    "Describe your experience working in a team environment.",
+]
+
+
+def _fallback_extract_skills(text: str) -> list[str]:
+    """Extract skills from resume text using a keyword list when AI is unavailable."""
+    if not text:
+        return []
+    lowered = text.lower()
+    found = []
+    for skill in COMMON_SKILLS:
+        # Use word boundaries for short skills to avoid false matches
+        pattern = r"(?<!\w)" + re.escape(skill) + r"(?!\w)"
+        if re.search(pattern, lowered):
+            found.append(skill.title() if " " in skill else skill.capitalize())
+    return found
+
+
+def _fallback_extract_experience(text: str) -> ExperienceAnalysisResult:
+    """Estimate total experience years from common patterns in resume text."""
+    if not text:
+        return ExperienceAnalysisResult(total_experience_years=0, experiences=[])
+
+    # Look for patterns like "3+ years", "3 years", "3 yrs"
+    matches = re.findall(r"(\d+(?:\.\d+)?)\s*\+?\s*(?:years?|yrs?|year)", text, re.IGNORECASE)
+    years_list = [float(y) for y in matches]
+    total = int(round(sum(years_list))) if years_list else 0
+
+    # Try to extract role/company/duration lines
+    experiences = []
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        line = line.strip()
+        if not line:
+            continue
+        # Simple heuristic: line contains a title-like word and a date/duration
+        if re.search(r"\b(20\d{2}|present|current|years?)\b", line, re.IGNORECASE) and len(line) < 120:
+            experiences.append(WorkExperienceItem(role=line, company="", duration=line, years=0))
+
+    return ExperienceAnalysisResult(total_experience_years=total, experiences=experiences[:5])
+
+
+def _fallback_score(text: str, skills: list[str], experience_years: int) -> CandidateScoreResult:
+    """Generate a simple score based on resume content when AI is unavailable."""
+    score = min(100, max(50, len(skills) * 5 + experience_years * 3 + min(len(text) // 200, 15)))
+    breakdown = {
+        "skills": min(100, len(skills) * 10),
+        "experience": min(100, experience_years * 15),
+        "projects": min(100, len(text) // 300),
+        "formatting": 70
+    }
+    explanation = (
+        f"Rule-based fallback score. Detected {len(skills)} skills and "
+        f"{experience_years} years of experience from the resume."
+    )
+    return CandidateScoreResult(score=score, breakdown=breakdown, explanation=explanation)
+
+
+def _fallback_questions(target_role: str) -> list[GeneratedQuestion]:
+    """Return generic role-based questions when AI question generation fails."""
+    return [
+        GeneratedQuestion(
+            category="General",
+            question_text=q.format(role=target_role),
+            expected_topics=["background", "motivation", "communication"]
+        )
+        for q in _GENERIC_QUESTIONS
+    ]
+
+
 def run_resume_analysis(resume_path: str, target_role: str = "Software Engineer", job_desc_path: str = None):
     # 1. Parse Resume
     print(f"[*] Parsing resume: {resume_path}")
-    resume_text = ResumeParser.parse(resume_path)
+    try:
+        resume_text = ResumeParser.parse(resume_path)
+    except Exception as e:
+        print(f"[!] Resume parsing failed: {e}. Attempting raw text fallback.")
+        # Last resort: read raw bytes as text
+        try:
+            with open(resume_path, "r", encoding="utf-8", errors="ignore") as f:
+                resume_text = f.read()
+        except Exception:
+            resume_text = ""
     print(f"[+] Successfully extracted {len(resume_text)} characters of text.")
+
+    if not resume_text.strip():
+        raise ValueError("Could not extract any readable text from the uploaded resume. Please upload a PDF or DOCX with selectable text.")
 
     # 2. Extract Skills
     print("[*] Extracting skills...")
     extractor = SkillExtractor()
     skills = extractor.extract_skills(resume_text)
+    if not skills:
+        print("[*] Using rule-based skill extraction fallback.")
+        skills = _fallback_extract_skills(resume_text)
     print(f"[+] Found {len(skills)} skills.")
 
     # 3. Analyze Experience
     print("[*] Analyzing experience...")
     exp_analyzer = ExperienceAnalyzer()
     exp_result = exp_analyzer.analyze_experience(resume_text)
+    if not exp_result.experiences and exp_result.total_experience_years == 0:
+        print("[*] Using rule-based experience extraction fallback.")
+        exp_result = _fallback_extract_experience(resume_text)
     exp_years = exp_result.total_experience_years
     print(f"[+] Experience: {exp_years} years.")
 
@@ -44,6 +157,9 @@ def run_resume_analysis(resume_path: str, target_role: str = "Software Engineer"
     print("[*] Scoring candidate resume...")
     scorer = CandidateScorer()
     score_result = scorer.score_candidate(resume_text, skills, exp_years)
+    if score_result.score == 70 and score_result.explanation == "Fallback score due to calculation error.":
+        print("[*] Using rule-based scoring fallback.")
+        score_result = _fallback_score(resume_text, skills, exp_years)
     candidate_score = score_result.score
     print(f"[+] Candidate Score: {candidate_score}")
 
@@ -68,6 +184,9 @@ def run_resume_analysis(resume_path: str, target_role: str = "Software Engineer"
     print("[*] Generating tailored interview questions...")
     q_generator = QuestionGenerator()
     questions = q_generator.generate_questions(resume_text, target_role)
+    if not questions:
+        print("[*] Using generic question fallback.")
+        questions = _fallback_questions(target_role)
     print(f"[+] Generated {len(questions)} tailored questions.")
 
     # Format full result

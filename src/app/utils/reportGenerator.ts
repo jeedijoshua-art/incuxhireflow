@@ -14,7 +14,55 @@ export interface SessionTurn {
   violations?: string[];
 }
 
-export function generatePDFReport(sessionData: SessionTurn[]) {
+export interface QuestionTurnResult {
+  question: string;
+  expected_answer: string;
+  candidate_answer: string;
+  evaluation: any;
+}
+
+export interface FinalFeedbackReport {
+  overall_score: number;
+  communication_avg: number;
+  technical_accuracy_avg: number;
+  confidence_avg: number;
+  strengths: string[];
+  areas_to_improve: string[];
+  summary: string;
+  answer_mismatches: string[];
+  question_turns: QuestionTurnResult[];
+}
+
+export function isQuestionAttempted(turn: QuestionTurnResult): boolean {
+  const answer = (turn.candidate_answer || "").trim();
+  if (!answer) return false;
+
+  const explanation = (turn.evaluation?.explanation || "").toLowerCase();
+  if (
+    explanation.includes("skipped") ||
+    explanation.includes("not attempted") ||
+    explanation.includes("ended early")
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+export function buildMismatchEntry(turn: QuestionTurnResult, index: number): string {
+  if (!isQuestionAttempted(turn)) {
+    return `Question ${index + 1}: Not attempted`;
+  }
+
+  const matchText = turn.evaluation?.expected_answer_match?.trim();
+  if (matchText && !matchText.toLowerCase().includes("not attempted")) {
+    return `Question ${index + 1}: ${matchText}`;
+  }
+
+  return `Question ${index + 1}: Answer reviewed — see question-wise analysis for details.`;
+}
+
+export function generatePDFReport(sessionData: SessionTurn[], finalReport?: FinalFeedbackReport) {
   const doc = new jsPDF();
   let yPos = 20;
 
@@ -119,7 +167,7 @@ export function generatePDFReport(sessionData: SessionTurn[]) {
 
       // Analyze Transcript
       const t = (turn.transcript || "").toLowerCase();
-      const words = t.split(/\s+/).filter(w => w.length > 0);
+      const words = t.split(/\s+/).filter((w: string) => w.length > 0);
       totalWords += words.length;
       fillerWordsList.forEach(fw => {
         const regex = new RegExp(`\\b${fw}\\b`, 'gi');
@@ -216,6 +264,65 @@ export function generatePDFReport(sessionData: SessionTurn[]) {
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
     return newY + 10;
+  };
+
+  const drawStatusBadge = (x: number, y: number, attempted: boolean) => {
+    const label = attempted ? "ATTEMPTED" : "NOT ATTEMPTED";
+    const color = attempted ? [16, 185, 129] : [239, 68, 68];
+    doc.setFillColor(color[0], color[1], color[2]);
+    const width = attempted ? 24 : 32;
+    doc.rect(x, y - 4, width, 7, "F");
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 255, 255);
+    doc.text(label, x + width / 2, y, { align: "center" });
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+  };
+
+  const drawMismatchCard = (turn: QuestionTurnResult | null, idx: number, currentY: number) => {
+    const attempted = turn ? isQuestionAttempted(turn) : false;
+    const cardPadding = 4;
+    const leftMargin = 20;
+    const rightMargin = 190;
+    const contentWidth = rightMargin - leftMargin;
+
+    // Header row
+    doc.setFillColor(attempted ? 240 : 254, attempted ? 253 : 242, attempted ? 250 : 242);
+    doc.setDrawColor(attempted ? 153 : 252, attempted ? 246 : 165, attempted ? 228 : 165);
+    doc.rect(leftMargin, currentY - 6, contentWidth, 12, "FD");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(attempted ? 13 : 185, attempted ? 148 : 28, attempted ? 136 : 28);
+    doc.text(`Question ${idx + 1}`, leftMargin + cardPadding, currentY);
+    doc.setTextColor(0, 0, 0);
+
+    drawStatusBadge(rightMargin - cardPadding - (attempted ? 24 : 32), currentY, attempted);
+
+    currentY += 10;
+
+    // Body
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(180, 83, 9);
+    doc.text("Missing Points & Feedback:", leftMargin + cardPadding, currentY);
+    doc.setTextColor(0, 0, 0);
+    currentY += 5;
+
+    doc.setFont("helvetica", "normal");
+    let feedbackText = "Question data not available.";
+    if (turn) {
+      feedbackText = attempted
+        ? (turn.evaluation?.expected_answer_match || "No specific missing points identified.")
+        : "Candidate did not answer this question.";
+    }
+
+    const splitFeedback = doc.splitTextToSize(feedbackText, contentWidth - cardPadding * 2);
+    doc.text(splitFeedback, leftMargin + cardPadding, currentY);
+    currentY += splitFeedback.length * 5 + 4;
+
+    return currentY;
   };
 
   // ----------------------------------------------------
@@ -345,170 +452,343 @@ export function generatePDFReport(sessionData: SessionTurn[]) {
   checkPageBreak(80);
   yPos = drawSectionHeader("SECTION 4: Performance Analysis", yPos);
 
-  doc.setFont("helvetica", "bold");
-  doc.text("Key Strengths", 20, yPos);
-  doc.setFont("helvetica", "normal");
-  yPos += 8;
+  if (finalReport) {
+    doc.setFont("helvetica", "bold");
+    doc.text("Key Strengths", 20, yPos);
+    doc.setFont("helvetica", "normal");
+    yPos += 8;
 
-  let strengths = [];
-  if (avgEye >= 75) strengths.push("Maintained excellent eye contact, indicating strong virtual presence.");
-  if (avgConf >= 75) strengths.push("Displayed high confidence and composure throughout the session.");
-  if (avgAtt >= 80) strengths.push("Showed highly consistent attention levels without distraction.");
-  if (speechQuality >= 75) strengths.push("Delivered clear, fluent answers with minimal use of filler words.");
-  if (resumeMatchScore >= 80) strengths.push("Strong alignment between stated resume skills and the applied role.");
-  if (dominantEmotion === "Happy") strengths.push("Exhibited a positive and engaging demeanor (Dominant Emotion: Happy).");
+    if (finalReport.strengths.length === 0) {
+      doc.text("- No prominent strengths identified.", 20, yPos);
+      yPos += 6;
+    } else {
+      finalReport.strengths.forEach(s => {
+        const txt = doc.splitTextToSize(`\u2022 ${s}`, 170);
+        doc.text(txt, 20, yPos);
+        yPos += txt.length * 5 + 2;
+      });
+    }
 
-  if (strengths.length === 0) {
-    doc.text("- No prominent strengths identified by telemetry.", 20, yPos);
     yPos += 6;
+    doc.setFont("helvetica", "bold");
+    doc.text("Areas for Improvement", 20, yPos);
+    doc.setFont("helvetica", "normal");
+    yPos += 8;
+
+    if (finalReport.areas_to_improve.length === 0) {
+      doc.text("- Performance was highly consistent with no major flags.", 20, yPos);
+      yPos += 6;
+    } else {
+      finalReport.areas_to_improve.forEach(i => {
+        const txt = doc.splitTextToSize(`\u2022 ${i}`, 170);
+        doc.text(txt, 20, yPos);
+        yPos += txt.length * 5 + 2;
+      });
+    }
+
   } else {
-    strengths.forEach(s => {
-      const txt = doc.splitTextToSize(`\u2022 ${s}`, 170);
-      doc.text(txt, 20, yPos);
-      yPos += txt.length * 5 + 2;
-    });
-  }
+    doc.setFont("helvetica", "bold");
+    doc.text("Key Strengths", 20, yPos);
+    doc.setFont("helvetica", "normal");
+    yPos += 8;
 
-  yPos += 6;
-  doc.setFont("helvetica", "bold");
-  doc.text("Areas for Improvement", 20, yPos);
-  doc.setFont("helvetica", "normal");
-  yPos += 8;
+    let strengths = [];
+    if (avgEye >= 75) strengths.push("Maintained excellent eye contact, indicating strong virtual presence.");
+    if (avgConf >= 75) strengths.push("Displayed high confidence and composure throughout the session.");
+    if (avgAtt >= 80) strengths.push("Showed highly consistent attention levels without distraction.");
+    if (speechQuality >= 75) strengths.push("Delivered clear, fluent answers with minimal use of filler words.");
+    if (resumeMatchScore >= 80) strengths.push("Strong alignment between stated resume skills and the applied role.");
+    if (dominantEmotion === "Happy") strengths.push("Exhibited a positive and engaging demeanor (Dominant Emotion: Happy).");
 
-  let improvements = [];
-  if (avgEye < 65) improvements.push("Tended to look away from the camera; recommending better eye contact.");
-  if (avgConf < 65) improvements.push("Telemetry indicated low confidence; could benefit from interview practice.");
-  if (avgAtt < 75) improvements.push("Attention levels fluctuated, suggesting potential distractions during the call.");
-  if (speechQuality < 60) improvements.push("High usage of filler words or brief answers impacted speech clarity.");
-  if (allViolations.length > 0) improvements.push("Detected window/tab switching violations which must be investigated.");
-  if (missingSkills.length > 0) improvements.push(`Skill gaps identified: ${missingSkills.slice(0, 3).join(", ")}.`);
+    if (strengths.length === 0) {
+      doc.text("- No prominent strengths identified by telemetry.", 20, yPos);
+      yPos += 6;
+    } else {
+      strengths.forEach(s => {
+        const txt = doc.splitTextToSize(`\u2022 ${s}`, 170);
+        doc.text(txt, 20, yPos);
+        yPos += txt.length * 5 + 2;
+      });
+    }
 
-  if (improvements.length === 0) {
-    doc.text("- Performance was highly consistent with no major flags.", 20, yPos);
     yPos += 6;
-  } else {
-    improvements.forEach(i => {
-      const txt = doc.splitTextToSize(`\u2022 ${i}`, 170);
-      doc.text(txt, 20, yPos);
-      yPos += txt.length * 5 + 2;
-    });
+    doc.setFont("helvetica", "bold");
+    doc.text("Areas for Improvement", 20, yPos);
+    doc.setFont("helvetica", "normal");
+    yPos += 8;
+
+    let improvements = [];
+    if (avgEye < 65) improvements.push("Tended to look away from the camera; recommending better eye contact.");
+    if (avgConf < 65) improvements.push("Telemetry indicated low confidence; could benefit from interview practice.");
+    if (avgAtt < 75) improvements.push("Attention levels fluctuated, suggesting potential distractions during the call.");
+    if (speechQuality < 60) improvements.push("High usage of filler words or brief answers impacted speech clarity.");
+    if (allViolations.length > 0) improvements.push("Detected window/tab switching violations which must be investigated.");
+    if (missingSkills.length > 0) improvements.push(`Skill gaps identified: ${missingSkills.slice(0, 3).join(", ")}.`);
+
+    if (improvements.length === 0) {
+      doc.text("- Performance was highly consistent with no major flags.", 20, yPos);
+      yPos += 6;
+    } else {
+      improvements.forEach(i => {
+        const txt = doc.splitTextToSize(`\u2022 ${i}`, 170);
+        doc.text(txt, 20, yPos);
+        yPos += txt.length * 5 + 2;
+      });
+    }
   }
 
   yPos += 10;
 
-  // SECTION 5: Question-wise Analysis
+  // SECTION 5: Answer Mismatches & Missing Points
   checkPageBreak(50);
-  yPos = drawSectionHeader("SECTION 5: Question-wise Analysis", yPos);
+  yPos = drawSectionHeader("SECTION 5: Answer Mismatches & Missing Points", yPos);
 
-  if (resolvedSessionData.length === 0) {
+  if (finalReport && (finalReport.question_turns?.length > 0 || finalReport.answer_mismatches?.length > 0)) {
+    // Build a complete 10-question list so every question is shown clearly.
+    const allTurns: (QuestionTurnResult | null)[] = Array.from({ length: 10 }, (_, i) => {
+      if (finalReport.question_turns && finalReport.question_turns[i]) {
+        return finalReport.question_turns[i];
+      }
+      return null;
+    });
+
+    allTurns.forEach((turn, idx) => {
+      checkPageBreak(60);
+      yPos = drawMismatchCard(turn, idx, yPos);
+    });
+  } else {
     doc.setFont("helvetica", "italic");
-    doc.text("No questions answered.", 20, yPos);
+    doc.text("No question-level mismatch data available.", 20, yPos);
+    yPos += 10;
   }
 
-  resolvedSessionData.forEach((turn, idx) => {
-    checkPageBreak(70);
+  yPos += 10;
 
-    // Card header
-    doc.setFillColor(245, 245, 245);
-    doc.rect(20, yPos - 5, 170, 10, "F");
+  // SECTION 6: Question-wise Analysis
+  checkPageBreak(50);
+  yPos = drawSectionHeader("SECTION 6: Question-wise Analysis & Comparison", yPos);
 
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(13, 148, 136); // Teal
-    doc.text(`Question ${turn.question}`, 22, yPos + 2);
+  if (finalReport && finalReport.question_turns && finalReport.question_turns.length > 0) {
+    finalReport.question_turns.forEach((turn, idx) => {
+      checkPageBreak(120);
 
-    const ansLen = (turn.transcript || "").split(/\s+/).filter(w => w.length > 0).length;
-    const ansStatus = ansLen > 5 ? "Answered" : "Skipped/Brief";
+      const attemptedQ = isQuestionAttempted(turn);
 
-    doc.setTextColor(100, 100, 100);
-    doc.setFontSize(9);
-    doc.text(`Status: ${ansStatus} | Length: ${ansLen} words`, 190, yPos + 2, { align: "right" });
+      // Card header
+      doc.setFillColor(attemptedQ ? 240 : 254, attemptedQ ? 253 : 242, attemptedQ ? 250 : 242);
+      doc.setDrawColor(attemptedQ ? 153 : 252, attemptedQ ? 246 : 165, attemptedQ ? 228 : 165);
+      doc.rect(20, yPos - 5, 170, 10, "FD");
 
-    doc.setTextColor(0, 0, 0);
-    yPos += 12;
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(attemptedQ ? 13 : 185, attemptedQ ? 148 : 28, attemptedQ ? 136 : 28);
+      doc.text(`Question ${idx + 1}`, 22, yPos + 2);
+      doc.setTextColor(0, 0, 0);
 
-    // Telemetry Mini-Row
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text(`Confidence: ${turn.telemetry.confidence}% | Emotion: ${turn.telemetry.emotion}`, 22, yPos);
-    yPos += 6;
+      drawStatusBadge(190 - 4 - (attemptedQ ? 24 : 32), yPos + 2, attemptedQ);
 
-    // Transcript
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("Transcript:", 22, yPos);
-    yPos += 5;
+      yPos += 14;
 
-    doc.setFont("helvetica", "normal");
-    const transcriptText = ansLen > 0 ? turn.transcript : "(No audible response recorded)";
-    const splitText = doc.splitTextToSize(transcriptText, 166);
-    doc.text(splitText, 22, yPos);
-    yPos += splitText.length * 5 + 3;
+      // Question
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text("Question:", 22, yPos);
+      yPos += 5;
+      doc.setFont("helvetica", "normal");
+      const questionText = doc.splitTextToSize(turn.question, 166);
+      doc.text(questionText, 22, yPos);
+      yPos += questionText.length * 5 + 4;
 
-    // AI Comment
-    doc.setFont("helvetica", "bold");
-    doc.text("AI Insight:", 22, yPos);
-    doc.setFont("helvetica", "italic");
+      // Expected Answer
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(22, 163, 74); // Green
+      doc.text("Expected Answer:", 22, yPos);
+      doc.setTextColor(0, 0, 0);
+      yPos += 5;
+      doc.setFont("helvetica", "normal");
+      const expectedText = doc.splitTextToSize(turn.expected_answer, 166);
+      doc.text(expectedText, 22, yPos);
+      yPos += expectedText.length * 5 + 4;
 
-    let aiComment = "Candidate provided a balanced response.";
-    if (ansLen < 10) aiComment = "Response was unusually brief or incomplete.";
-    else if (turn.telemetry.confidence < 50) aiComment = "Candidate displayed significant hesitation during this answer.";
-    else if (turn.telemetry.confidence > 85 && ansLen > 30) aiComment = "Candidate answered comprehensively and with high confidence.";
-    else if (turn.telemetry.emotion === "Fear" || turn.telemetry.emotion === "Surprise") aiComment = "Candidate exhibited signs of stress or surprise.";
+      // Candidate Answer
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(37, 99, 235); // Blue
+      doc.text("Your Answer:", 22, yPos);
+      doc.setTextColor(0, 0, 0);
+      yPos += 5;
+      doc.setFont("helvetica", "normal");
+      const candidateText = doc.splitTextToSize(turn.candidate_answer || "(No answer provided)", 166);
+      doc.text(candidateText, 22, yPos);
+      yPos += candidateText.length * 5 + 4;
 
-    const splitInsight = doc.splitTextToSize(aiComment, 166);
-    doc.text(splitInsight, 22, yPos + 5);
-    yPos += splitInsight.length * 5 + 10;
-  });
+      // Missing Points (attempted) or Not attempted
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(180, 83, 9);
+      doc.text("Missing Points & Feedback:", 22, yPos);
+      doc.setTextColor(0, 0, 0);
+      yPos += 5;
+      doc.setFont("helvetica", "normal");
 
-  // SECTION 6: Overall Recommendation
-  checkPageBreak(60);
+      const feedbackText = isQuestionAttempted(turn)
+        ? turn.evaluation?.expected_answer_match || "No specific missing points identified."
+        : "Not attempted";
+
+      const missingText = doc.splitTextToSize(feedbackText, 166);
+      doc.text(missingText, 22, yPos);
+      yPos += missingText.length * 5 + 4;
+
+      // Evaluation Scores
+      if (turn.evaluation) {
+        doc.setFont("helvetica", "bold");
+        doc.text("Evaluation Scores:", 22, yPos);
+        yPos += 6;
+        doc.setFont("helvetica", "normal");
+        
+        const comm = turn.evaluation.communication || 0;
+        const tech = turn.evaluation.technical_accuracy || 0;
+        const conf = turn.evaluation.confidence || 0;
+        
+        doc.text(`Communication: ${comm}%`, 22, yPos);
+        drawBar(60, yPos - 3, 60, 4, comm, [6, 182, 212]);
+        
+        doc.text(`Technical: ${tech}%`, 22, yPos + 5);
+        drawBar(60, yPos + 2, 60, 4, tech, [139, 92, 246]);
+        
+        doc.text(`Confidence: ${conf}%`, 22, yPos + 10);
+        drawBar(60, yPos + 7, 60, 4, conf, [16, 185, 129]);
+        
+        yPos += 15;
+      }
+
+      yPos += 10;
+    });
+  } else {
+    if (resolvedSessionData.length === 0) {
+      doc.setFont("helvetica", "italic");
+      doc.text("No questions answered.", 20, yPos);
+    }
+
+    resolvedSessionData.forEach((turn, idx) => {
+      checkPageBreak(70);
+
+      const ansLen = (turn.transcript || "").split(/\s+/).filter((w: string) => w.length > 0).length;
+      const attemptedFB = ansLen > 5;
+
+      // Card header
+      doc.setFillColor(attemptedFB ? 240 : 254, attemptedFB ? 253 : 242, attemptedFB ? 250 : 242);
+      doc.setDrawColor(attemptedFB ? 153 : 252, attemptedFB ? 246 : 165, attemptedFB ? 228 : 165);
+      doc.rect(20, yPos - 5, 170, 10, "FD");
+
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(attemptedFB ? 13 : 185, attemptedFB ? 148 : 28, attemptedFB ? 136 : 28);
+      doc.text(`Question ${turn.question}`, 22, yPos + 2);
+      doc.setTextColor(0, 0, 0);
+
+      drawStatusBadge(190 - 4 - (attemptedFB ? 24 : 32), yPos + 2, attemptedFB);
+
+      doc.setFontSize(9);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`${ansLen} words`, 190 - 4 - (attemptedFB ? 24 : 32) - 28, yPos + 2, { align: "right" });
+      doc.setTextColor(0, 0, 0);
+      yPos += 14;
+
+      // Telemetry Mini-Row
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Confidence: ${turn.telemetry.confidence}% | Emotion: ${turn.telemetry.emotion}`, 22, yPos);
+      yPos += 6;
+
+      // Transcript
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text("Transcript:", 22, yPos);
+      yPos += 5;
+
+      doc.setFont("helvetica", "normal");
+      const transcriptText = ansLen > 0 ? turn.transcript : "(No audible response recorded)";
+      const splitText = doc.splitTextToSize(transcriptText, 166);
+      doc.text(splitText, 22, yPos);
+      yPos += splitText.length * 5 + 3;
+
+      // AI Comment
+      doc.setFont("helvetica", "bold");
+      doc.text("AI Insight:", 22, yPos);
+      doc.setFont("helvetica", "italic");
+
+      let aiComment = "Candidate provided a balanced response.";
+      if (ansLen < 10) aiComment = "Response was unusually brief or incomplete.";
+      else if (turn.telemetry.confidence < 50) aiComment = "Candidate displayed significant hesitation during this answer.";
+      else if (turn.telemetry.confidence > 85 && ansLen > 30) aiComment = "Candidate answered comprehensively and with high confidence.";
+      else if (turn.telemetry.emotion === "Fear" || turn.telemetry.emotion === "Surprise") aiComment = "Candidate exhibited signs of stress or surprise.";
+
+      const splitInsight = doc.splitTextToSize(aiComment, 166);
+      doc.text(splitInsight, 22, yPos + 5);
+      yPos += splitInsight.length * 5 + 10;
+    });
+  }
+
+  // SECTION 7: Overall Recommendation
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+
+  const finalOverallScore = finalReport?.overall_score ?? overallScore;
+
+  let recText = "";
+  let nextRound = "";
+  let recColor: [number, number, number] = [220, 38, 38];
+
+  if (allViolations.length > 1) {
+    recText = "DO NOT HIRE - Integrity violations detected.";
+    nextRound = "None (Disqualified)";
+    recColor = [220, 38, 38];
+  } else if (finalOverallScore >= 80 && resumeMatchScore >= 75) {
+    recText = "STRONG HIRE - Candidate demonstrated excellent technical and behavioral fit.";
+    nextRound = "Final / HM Round";
+    recColor = [16, 185, 129];
+  } else if (finalOverallScore >= 65) {
+    recText = "POTENTIAL HIRE - Solid performance, but further vetting recommended on specific skills.";
+    nextRound = "Technical Deep-Dive";
+    recColor = [245, 158, 11];
+  } else {
+    recText = "NO HIRE - Candidate did not meet the required behavioral and communication thresholds.";
+    nextRound = "None (Rejected)";
+    recColor = [220, 38, 38];
+  }
+
+  const recLines = doc.splitTextToSize(`Recommendation: ${recText}`, 155);
+  const sectionHeight = 10 + 20 + recLines.length * 6 + 2 + 6 + 8 + 6 + 10;
+
+  checkPageBreak(sectionHeight);
+  const sectionStartY = yPos;
+
   doc.setFillColor(248, 250, 252);
   doc.setDrawColor(203, 213, 225);
-  doc.rect(20, yPos, 170, 45, "FD");
+  doc.rect(20, sectionStartY, 170, sectionHeight, "FD");
 
-  yPos += 10;
+  yPos = sectionStartY + 10;
   doc.setTextColor(15, 23, 42);
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.text("SECTION 6: Overall Hiring Recommendation", 25, yPos);
+  doc.text("SECTION 7: Overall Hiring Recommendation", 25, yPos);
   yPos += 10;
 
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
+  doc.setTextColor(...recColor);
+  doc.text(recLines, 25, yPos);
+  yPos += recLines.length * 6 + 2;
 
-  let recText = "";
-  let nextRound = "";
-  if (allViolations.length > 1) {
-    recText = "DO NOT HIRE - Integrity violations detected.";
-    nextRound = "None (Disqualified)";
-    doc.setTextColor(220, 38, 38); // Red
-  } else if (overallScore >= 80 && resumeMatchScore >= 75) {
-    recText = "STRONG HIRE - Candidate demonstrated excellent technical and behavioral fit.";
-    nextRound = "Final / HM Round";
-    doc.setTextColor(16, 185, 129); // Emerald
-  } else if (overallScore >= 65) {
-    recText = "POTENTIAL HIRE - Solid performance, but further vetting recommended on specific skills.";
-    nextRound = "Technical Deep-Dive";
-    doc.setTextColor(245, 158, 11); // Amber
-  } else {
-    recText = "NO HIRE - Candidate did not meet the required behavioral and communication thresholds.";
-    nextRound = "None (Rejected)";
-    doc.setTextColor(220, 38, 38); // Red
-  }
-
-  doc.text(`Recommendation: ${recText}`, 25, yPos);
-  yPos += 8;
   doc.setTextColor(15, 23, 42);
-  doc.text(`Recommended Next Step:`, 25, yPos);
+  doc.text("Recommended Next Step:", 25, yPos);
   doc.setFont("helvetica", "normal");
   doc.text(nextRound, 78, yPos);
 
   yPos += 8;
   doc.setFont("helvetica", "bold");
-  doc.text(`Overall Score:`, 25, yPos);
+  doc.text("Overall Score:", 25, yPos);
   doc.setFont("helvetica", "normal");
-  doc.text(`${overallScore}/100`, 55, yPos);
+  doc.text(`${finalOverallScore}/100`, 55, yPos);
 
   addFooter();
   try {

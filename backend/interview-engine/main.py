@@ -10,6 +10,8 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from speech_to_text import SpeechToText
 from question_generator import StaticQuestionGenerator
 from interview_flow import InterviewFlowManager, InterviewSessionState
+from candidate_evaluator import CandidateEvaluator
+from feedback_generator import FeedbackGenerator
 
 def run_interview_simulation(resume_text: str, target_role: str, interactive: bool = False, max_questions: int = 10):
     # 1. Initialize State
@@ -24,21 +26,23 @@ def run_interview_simulation(resume_text: str, target_role: str, interactive: bo
     flow = InterviewFlowManager(state)
     generator = StaticQuestionGenerator()
     stt = SpeechToText()
+    evaluator = CandidateEvaluator()
+    feedback_gen = FeedbackGenerator()
 
     # 2. Main Interview Loop
     while not flow.is_complete():
         q_idx = flow.state.current_question_index
         category = flow.get_current_category()
         
-        # Generate question
-        question = generator.generate_question(q_idx)
+        # Generate question with expected answer
+        question_obj = generator.generate_question(q_idx)
         
-        flow.add_interviewer_question(question)
+        flow.add_interviewer_question(question_obj.question, question_obj.expected_answer)
         
         print("\n" + "="*50)
         print(f"Question {q_idx}/{max_questions} [{category}]:")
         print("="*50)
-        print(question)
+        print(question_obj.question)
 
         # Get Candidate Answer
         if interactive:
@@ -60,6 +64,24 @@ def run_interview_simulation(resume_text: str, target_role: str, interactive: bo
 
         flow.add_candidate_answer(answer)
 
+        # Evaluate the answer
+        try:
+            evaluation = evaluator.evaluate_answer(
+                question=question_obj.question,
+                answer=answer,
+                expected_answer=question_obj.expected_answer,
+                target_role=target_role
+            )
+            flow.record_evaluation(evaluation.model_dump())
+            print(f"\nEvaluation:")
+            print(f"  Communication: {evaluation.communication}")
+            print(f"  Technical Accuracy: {evaluation.technical_accuracy}")
+            print(f"  Confidence: {evaluation.confidence}")
+            print(f"  Match: {evaluation.expected_answer_match}")
+            print(f"  Explanation: {evaluation.explanation}")
+        except Exception as e:
+            print(f"\nEvaluation error: {e}")
+
         # Advance Flow
         flow.advance_turn()
 
@@ -67,8 +89,18 @@ def run_interview_simulation(resume_text: str, target_role: str, interactive: bo
     print("\n" + "="*50)
     print("GENERATING FINAL FEEDBACK REPORT...")
     print("="*50)
-    report = {"status": "done"}
-    print(json.dumps(report, indent=2))
+    
+    try:
+        report = feedback_gen.generate_feedback(
+            target_role=target_role,
+            chat_history=flow.state.chat_history,
+            evaluations=flow.state.evaluations
+        )
+        print(json.dumps(report.model_dump(), indent=2))
+    except Exception as e:
+        print(f"Report generation error: {e}")
+        report = {"status": "error", "detail": str(e)}
+        
     return report
 
 def main():

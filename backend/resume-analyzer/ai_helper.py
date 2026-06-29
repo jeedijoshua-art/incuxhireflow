@@ -14,9 +14,20 @@ class AIHelper:
     Provides robust fallback handling when API keys or models are not working.
     """
     def __init__(self):
-        # Load environment variables from the backend folder
-        load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
-        
+        # Search for .env in common locations so the key is found regardless of
+        # which module is imported first.
+        candidate_paths = [
+            os.path.join(os.path.dirname(__file__), ".env"),
+            os.path.join(os.path.dirname(__file__), "..", ".env"),
+            os.path.join(os.path.dirname(__file__), "..", "api", ".env"),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"),
+        ]
+        for env_path in candidate_paths:
+            if os.path.isfile(env_path):
+                load_dotenv(env_path)
+                if os.getenv("GEMINI_API_KEY") or os.getenv("GROQ_API_KEY"):
+                    break
+
         self.gemini_key = os.getenv("GEMINI_API_KEY")
         self.groq_key = os.getenv("GROQ_API_KEY")
         
