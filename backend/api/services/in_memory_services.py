@@ -26,6 +26,18 @@ _generator = QuestionGenerator()
 for idx, q_text in enumerate(_generator.question_bank, 1):
     q_id = str(idx)
     now = datetime.utcnow().isoformat()
+    default_ideal_answers = [
+        "A concise career summary highlighting education, current focus, relevant projects, technical skills, accomplishments, and why you are interested in this role.",
+        "A detailed walkthrough of one strong project, including your role, technical stack, impact, and measurable outcomes.",
+        "A structured story describing a challenging problem, your approach, the solution, and what you learned.",
+        "An explanation showing that a primary key uniquely identifies records in a table, while a foreign key defines relationships between tables.",
+        "A clear comparison where a compiler translates code into machine language ahead of execution and an interpreter executes code line by line at runtime.",
+        "A description that overloading uses same method name with different signatures, while overriding replaces a base class method in a subclass.",
+        "A compelling answer about your preferred language, why it suits your skills, and examples of how you use it effectively.",
+        "A narrative about quickly learning new technology, the steps you took, how you applied it, and the resulting success.",
+        "A thoughtful problem-solving process that emphasizes analysis, research, testing, and learning from unknowns.",
+        "A persuasive summary of your fit for the role, emphasizing your strengths, accomplishments, motivation, and how you can contribute."
+    ]
     _questions[q_id] = {
         "id": q_id,
         "question_index": idx,
@@ -42,7 +54,7 @@ for idx, q_text in enumerate(_generator.question_bank, 1):
         "expected_concepts": [],
         "weight": 1.0,
         "passing_score": 60,
-        "ideal_answer": "",
+        "ideal_answer": default_ideal_answers[idx - 1],
         "hints": []
     }
 

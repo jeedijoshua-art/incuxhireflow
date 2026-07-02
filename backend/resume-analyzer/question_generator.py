@@ -156,5 +156,22 @@ Resume Content:
                 print(f"[QUESTION_GENERATOR] Parsing or Validation Failed: {e}")
                 print(f"[QUESTION_GENERATOR] Raw LLM Response:\n{raw_text}")
                 if attempt == max_retries:
-                    raise Exception("Unable to generate personalized Resume AI interview questions.")
+                    print("[QUESTION_GENERATOR] Falling back to default resume AI question bank due to AI generation failure.")
+                    return [
+                        GeneratedQuestion(
+                            question_text=q,
+                            difficulty="Medium",
+                            category="Technical" if idx > 1 and idx < 9 else "HR",
+                            expected_keywords=["clarity", "structure"],
+                            expected_concepts=["communication", "reasoning"],
+                            ideal_answer="Provide a clear, structured response with examples and relevant experience.",
+                            skills=["communication"],
+                            weight=1.0,
+                            detected_skill="General",
+                            detected_technology=target_role,
+                            role=target_role,
+                            topic="Interview Question"
+                        )
+                        for idx, q in enumerate(self.question_bank, start=1)
+                    ]
 

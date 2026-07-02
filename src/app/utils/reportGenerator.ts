@@ -14,7 +14,21 @@ export interface SessionTurn {
   violations?: string[];
 }
 
-export function generatePDFReport(sessionData: SessionTurn[], returnBlob: boolean = false) {
+function loadFinalReport() {
+  try {
+    const raw = localStorage.getItem("hireflow_final_report");
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    console.error("Failed to parse final report for PDF generation:", err);
+    return null;
+  }
+}
+
+export function generatePDFReport(rawSessionData: SessionTurn[], returnBlob: boolean = false) {
+  const dedupedData = rawSessionData.filter((turn, index, self) => self.findIndex(t => t.question === turn.question) === index);
+  const sessionData = dedupedData.length > 0 ? dedupedData : rawSessionData;
+  const aiReport = loadFinalReport();
+
   const doc = new jsPDF();
   let yPos = 20;
 
@@ -33,35 +47,47 @@ export function generatePDFReport(sessionData: SessionTurn[], returnBlob: boolea
   let candidateName = "Not Available";
   let candidateEmail = "Not Available";
   let candidatePhone = "Not Available";
+  let candidateSummary = "";
   let resumeMatchScore = 0;
   let atsScore = 0;
   let matchedSkills: string[] = [];
   let missingSkills: string[] = [];
 
-  const appliedRole = localStorage.getItem("hireflow_target_role") || "Not Available";
+  let appliedRole = localStorage.getItem("hireflow_target_role") || "Not Available";
   const sessionId = localStorage.getItem("hireflow_session_id") || `S-${Math.floor(Math.random() * 1000000)}`;
   const candidateId = `C-${Math.floor(Math.random() * 1000000)}`; // Simulated candidate ID
 
   try {
     const rawResumeData = localStorage.getItem("hireflow_resume_data");
+    const spokenName = localStorage.getItem("hireflow_candidate_name");
     if (rawResumeData) {
       const parsed = JSON.parse(rawResumeData);
-      if (parsed.name) candidateName = parsed.name;
-      if (parsed.email) candidateEmail = parsed.email;
-      if (parsed.phone) candidatePhone = parsed.phone;
+      candidateName = parsed.name || spokenName || candidateName;
+      candidateEmail = parsed.email || candidateEmail;
+      candidatePhone = parsed.phone || candidatePhone;
+      candidateSummary = parsed.summary || "";
+      if (parsed.applied_role) {
+        // Keep existing target role if available, else use resume-applied role
+        if (!appliedRole || appliedRole === "Not Available") {
+          appliedRole = parsed.applied_role;
+        }
+      }
 
       // Simulate/Extract ATS scores from resume data if available
       resumeMatchScore = parsed.match_score || Math.floor(Math.random() * 20 + 75);
       atsScore = parsed.ats_score || Math.floor(Math.random() * 20 + 70);
-      matchedSkills = parsed.skills || ["JavaScript", "React", "TypeScript", "Node.js", "Problem Solving"];
-      missingSkills = parsed.missing_skills || ["Docker", "Kubernetes", "GraphQL"];
+      matchedSkills = Array.isArray(parsed.skills) ? parsed.skills : [];
+      missingSkills = Array.isArray(parsed.missing_skills) ? parsed.missing_skills : [];
+    } else if (spokenName) {
+      candidateName = spokenName;
     }
   } catch (e) {
-    console.error("Failed to parse resume data for PDF");
+    console.error("Failed to parse resume data for PDF", e);
   }
 
   // Calculate Interview Duration and Questions
-  const totalExpectedQuestions = 10;
+  const questionDefinitions = aiReport?.questions || [];
+  const totalExpectedQuestions = Math.max(sessionData.length, questionDefinitions.length, 10);
   const questionsAttempted = sessionData.length;
   const completionStatus = questionsAttempted >= totalExpectedQuestions ? "Completed" : "Incomplete";
 
@@ -146,9 +172,12 @@ export function generatePDFReport(sessionData: SessionTurn[], returnBlob: boolea
 
   // Overall Behavior Weighted Score:
   // Confidence (30%), Eye Contact (25%), Attention (20%), Speech Quality (25%)
-  const overallScore = sessionData.length > 0
+  const telemetryScore = sessionData.length > 0
     ? Math.round((avgConf * 0.30) + (avgEye * 0.25) + (avgAtt * 0.20) + (speechQuality * 0.25))
     : 0;
+
+  const overallScore = aiReport?.overall_score ?? 0;
+  const reportScore = overallScore;
 
   // ----------------------------------------------------
   // HELPER FUNCTIONS
@@ -234,8 +263,27 @@ export function generatePDFReport(sessionData: SessionTurn[], returnBlob: boolea
   drawRow("Phone:", candidatePhone, "Questions Attempted:", questionsAttempted.toString(), yPos);
   yPos += 8;
   drawRow("Applied Role:", appliedRole, "Interview Duration:", durationText, yPos);
+  yPos += 10;
 
-  yPos += 15;
+  if (candidateSummary) {
+    doc.setFont("helvetica", "bold");
+    doc.text("Resume Summary:", 20, yPos);
+    doc.setFont("helvetica", "normal");
+    const summaryLines = doc.splitTextToSize(candidateSummary, 170);
+    yPos += 6;
+    doc.text(summaryLines, 20, yPos);
+    yPos += summaryLines.length * 5 + 6;
+  }
+
+  if (matchedSkills.length > 0) {
+    doc.setFont("helvetica", "bold");
+    doc.text("Key Skills:", 20, yPos);
+    doc.setFont("helvetica", "normal");
+    const skillsText = doc.splitTextToSize(matchedSkills.slice(0, 10).join(", "), 170);
+    yPos += 6;
+    doc.text(skillsText, 20, yPos);
+    yPos += skillsText.length * 5 + 8;
+  }
 
   // SECTION 2: Resume Analysis
   checkPageBreak(50);
@@ -367,11 +415,15 @@ export function generatePDFReport(sessionData: SessionTurn[], returnBlob: boolea
   if (allViolations.length > 0) improvements.push("Detected window/tab switching violations which must be investigated.");
   if (missingSkills.length > 0) improvements.push(`Skill gaps identified: ${missingSkills.slice(0, 3).join(", ")}.`);
 
-  if (improvements.length === 0) {
+  const reportImprovements = Array.isArray(aiReport?.areas_to_improve) && aiReport.areas_to_improve.length > 0
+    ? aiReport.areas_to_improve
+    : improvements;
+
+  if (reportImprovements.length === 0) {
     doc.text("- Performance was highly consistent with no major flags.", 20, yPos);
     yPos += 6;
   } else {
-    improvements.forEach(i => {
+    reportImprovements.forEach(i => {
       const txt = doc.splitTextToSize(`\u2022 ${i}`, 170);
       doc.text(txt, 20, yPos);
       yPos += txt.length * 5 + 2;
@@ -389,7 +441,18 @@ export function generatePDFReport(sessionData: SessionTurn[], returnBlob: boolea
     doc.text("No questions answered.", 20, yPos);
   }
 
-  sessionData.forEach((turn, idx) => {
+  const questionEvaluations = aiReport?.evaluations || [];
+
+  for (let idx = 0; idx < totalExpectedQuestions; idx += 1) {
+    const questionIndex = idx + 1;
+    const turn = sessionData.find(t => t.question === questionIndex);
+    const metadata = questionDefinitions[idx] || {};
+    const evalData = questionEvaluations[idx] || {};
+    const questionLabel = metadata.question || `Question ${questionIndex}`;
+    const expectedKeywords = metadata.metadata?.expected_keywords || metadata.expected_keywords || [];
+    const expectedConcepts = metadata.metadata?.expected_concepts || metadata.expected_concepts || [];
+    const idealAnswer = metadata.metadata?.ideal_answer || metadata.ideal_answer || "";
+
     checkPageBreak(70);
 
     // Card header
@@ -399,10 +462,10 @@ export function generatePDFReport(sessionData: SessionTurn[], returnBlob: boolea
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(13, 148, 136); // Teal
-    doc.text(`Question ${turn.question}`, 22, yPos + 2);
+    doc.text(`Question ${questionIndex}`, 22, yPos + 2);
 
-    const ansLen = (turn.transcript || "").split(/\s+/).filter(w => w.length > 0).length;
-    const ansStatus = ansLen > 5 ? "Answered" : "Skipped/Brief";
+    const ansLen = turn ? (turn.transcript || "").split(/\s+/).filter(w => w.length > 0).length : 0;
+    const ansStatus = ansLen > 0 ? (ansLen > 5 ? "Answered" : "Skipped/Brief") : "Not Attempted";
 
     doc.setTextColor(100, 100, 100);
     doc.setFontSize(9);
@@ -411,52 +474,103 @@ export function generatePDFReport(sessionData: SessionTurn[], returnBlob: boolea
     doc.setTextColor(0, 0, 0);
     yPos += 12;
 
-    // Telemetry Mini-Row
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text(`Confidence: ${turn.telemetry.confidence}% | Emotion: ${turn.telemetry.emotion}`, 22, yPos);
-    yPos += 6;
-
-    // Transcript
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text("Transcript:", 22, yPos);
-    yPos += 5;
+    doc.text(questionLabel, 22, yPos);
+    yPos += 7;
 
-    doc.setFont("helvetica", "normal");
-    const transcriptText = ansLen > 0 ? turn.transcript : "(No audible response recorded)";
-    const splitText = doc.splitTextToSize(transcriptText, 166);
-    doc.text(splitText, 22, yPos);
-    yPos += splitText.length * 5 + 3;
+    if (metadata.category || metadata.difficulty) {
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      const metaParts = [];
+      if (metadata.category) metaParts.push(`Category: ${metadata.category}`);
+      if (metadata.difficulty) metaParts.push(`Difficulty: ${metadata.difficulty}`);
+      doc.text(metaParts.join(" • "), 22, yPos);
+      yPos += 6;
+    }
 
-    // AI Comment
+    if (expectedKeywords.length > 0 || expectedConcepts.length > 0) {
+      doc.setFontSize(8);
+      doc.text(`Expected: ${[...expectedKeywords, ...expectedConcepts].slice(0, 4).join(", ") || "N/A"}`, 22, yPos);
+      yPos += 6;
+    }
+
+    if (idealAnswer) {
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text("Expected Answer:", 22, yPos);
+      yPos += 5;
+      doc.setFont("helvetica", "normal");
+      const idealLines = doc.splitTextToSize(idealAnswer, 166);
+      doc.text(idealLines, 22, yPos);
+      yPos += idealLines.length * 5 + 6;
+    }
+
+    if (turn) {
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Confidence: ${turn.telemetry.confidence}% | Emotion: ${turn.telemetry.emotion}`, 22, yPos);
+      yPos += 6;
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text("Transcript:", 22, yPos);
+      yPos += 5;
+      doc.setFont("helvetica", "normal");
+      const transcriptText = turn.transcript || "(No audible response recorded)";
+      const splitText = doc.splitTextToSize(transcriptText, 166);
+      doc.text(splitText, 22, yPos);
+      yPos += splitText.length * 5 + 3;
+    } else {
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "italic");
+      const notAttemptedText = "This question was not attempted. No AI feedback is available.";
+      const splitText = doc.splitTextToSize(notAttemptedText, 166);
+      doc.text(splitText, 22, yPos);
+      yPos += splitText.length * 5 + 8;
+    }
+
     doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
     doc.text("AI Insight:", 22, yPos);
     doc.setFont("helvetica", "italic");
 
     let aiComment = "Candidate provided a balanced response.";
-    if (ansLen < 10) aiComment = "Response was unusually brief or incomplete.";
-    else if (turn.telemetry.confidence < 50) aiComment = "Candidate displayed significant hesitation during this answer.";
-    else if (turn.telemetry.confidence > 85 && ansLen > 30) aiComment = "Candidate answered comprehensively and with high confidence.";
-    else if (turn.telemetry.emotion === "Fear" || turn.telemetry.emotion === "Surprise") aiComment = "Candidate exhibited signs of stress or surprise.";
+    if (!turn) {
+      aiComment = "This question was not attempted. No AI feedback is available.";
+    } else if (typeof evalData.answer_quality === "number" && evalData.answer_quality < 50) {
+      aiComment = "AI identified the answer as below expected quality.";
+    } else if (typeof evalData.keyword_match === "number" && evalData.keyword_match < 70) {
+      aiComment = "AI suggests stronger keyword coverage and technical terminology.";
+    } else if (typeof evalData.concept_match === "number" && evalData.concept_match < 70) {
+      aiComment = "AI suggests clearer concept coverage in the response.";
+    } else if (ansLen < 10) {
+      aiComment = "Response was unusually brief or incomplete.";
+    } else if (turn.telemetry.confidence < 50) {
+      aiComment = "Candidate displayed significant hesitation during this answer.";
+    } else if (turn.telemetry.confidence > 85 && ansLen > 30) {
+      aiComment = "Candidate answered comprehensively and with high confidence.";
+    } else if (turn.telemetry.emotion === "Fear" || turn.telemetry.emotion === "Surprise") {
+      aiComment = "Candidate exhibited signs of stress or surprise.";
+    }
 
     const splitInsight = doc.splitTextToSize(aiComment, 166);
     doc.text(splitInsight, 22, yPos + 5);
     yPos += splitInsight.length * 5 + 10;
-  });
+  }
 
   // SECTION 6: Overall Recommendation
   checkPageBreak(60);
-  doc.setFillColor(248, 250, 252);
-  doc.setDrawColor(203, 213, 225);
-  doc.rect(20, yPos, 170, 45, "FD");
+  const panelX = 20;
+  const panelWidth = 170;
+  const panelPadding = 12;
 
   yPos += 10;
   doc.setTextColor(15, 23, 42);
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
   doc.text("SECTION 6: Overall Hiring Recommendation", 25, yPos);
-  yPos += 10;
+  yPos += 12;
 
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
@@ -467,11 +581,11 @@ export function generatePDFReport(sessionData: SessionTurn[], returnBlob: boolea
     recText = "DO NOT HIRE - Integrity violations detected.";
     nextRound = "None (Disqualified)";
     doc.setTextColor(220, 38, 38); // Red
-  } else if (overallScore >= 80 && resumeMatchScore >= 75) {
+  } else if (reportScore >= 80 && resumeMatchScore >= 75) {
     recText = "STRONG HIRE - Candidate demonstrated excellent technical and behavioral fit.";
     nextRound = "Final / HM Round";
     doc.setTextColor(16, 185, 129); // Emerald
-  } else if (overallScore >= 65) {
+  } else if (reportScore >= 65) {
     recText = "POTENTIAL HIRE - Solid performance, but further vetting recommended on specific skills.";
     nextRound = "Technical Deep-Dive";
     doc.setTextColor(245, 158, 11); // Amber
@@ -481,18 +595,30 @@ export function generatePDFReport(sessionData: SessionTurn[], returnBlob: boolea
     doc.setTextColor(220, 38, 38); // Red
   }
 
-  doc.text(`Recommendation: ${recText}`, 25, yPos);
-  yPos += 8;
-  doc.setTextColor(15, 23, 42);
-  doc.text(`Recommended Next Step:`, 25, yPos);
-  doc.setFont("helvetica", "normal");
-  doc.text(nextRound, 78, yPos);
+  const recommendationLines = doc.splitTextToSize(`Recommendation: ${recText}`, panelWidth - panelPadding);
+  const nextStepLines = doc.splitTextToSize(`Recommended Next Step: ${nextRound}`, panelWidth - panelPadding);
+  const scoreLines = doc.splitTextToSize(`Overall Score: ${overallScore}/100`, panelWidth - panelPadding);
+  const panelHeight = Math.max(45, recommendationLines.length * 6 + nextStepLines.length * 6 + scoreLines.length * 6 + 26);
 
-  yPos += 8;
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(203, 213, 225);
+  doc.rect(panelX, yPos - 10, panelWidth, panelHeight, "FD");
+
+  const contentStartY = yPos - 2;
+  doc.setTextColor(15, 23, 42);
+  doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text(`Overall Score:`, 25, yPos);
-  doc.setFont("helvetica", "normal");
-  doc.text(`${overallScore}/100`, 55, yPos);
+  doc.text(recommendationLines, panelX + 5, contentStartY);
+
+  let nextY = contentStartY + recommendationLines.length * 6 + 6;
+  doc.setTextColor(15, 23, 42);
+  doc.text(nextStepLines, panelX + 5, nextY);
+
+  nextY += nextStepLines.length * 6 + 6;
+  doc.setFont("helvetica", "bold");
+  doc.text(`Overall Score: ${overallScore}/100`, panelX + 5, nextY);
+
+  yPos += panelHeight - 2;
 
   addFooter();
   if (returnBlob) {

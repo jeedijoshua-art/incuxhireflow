@@ -174,7 +174,7 @@ export default function LiveInterviewPage() {
       
       // Use backend index if provided (backend is 0-indexed), otherwise increment
       if (data.index !== undefined) {
-        setQuestionIndex(data.index + 1);
+        setQuestionIndex(data.index);
       } else {
         setQuestionIndex(prev => prev + 1);
       }
@@ -381,11 +381,17 @@ export default function LiveInterviewPage() {
       
       // Save current turn data locally
       const sessionData = JSON.parse(localStorage.getItem("hireflow_session") || "[]");
-      sessionData.push({
+      const existingTurnIndex = sessionData.findIndex((turn: any) => turn.question === questionIndex);
+      const newTurn = {
         question: questionIndex,
         transcript,
         telemetry,
-      });
+      };
+      if (existingTurnIndex >= 0) {
+        sessionData[existingTurnIndex] = newTurn;
+      } else {
+        sessionData.push(newTurn);
+      }
       localStorage.setItem("hireflow_session", JSON.stringify(sessionData));
       
       setTranscript("");
@@ -539,50 +545,137 @@ export default function LiveInterviewPage() {
   };
   // ----------------------------------------------------
 
+  const parseSessionData = () => {
+    try {
+      const raw = localStorage.getItem("hireflow_session");
+      if (!raw) return [];
+      return JSON.parse(raw);
+    } catch (err) {
+      console.error("Failed to parse stored interview session data:", err);
+      return [];
+    }
+  };
+
+  const extractCandidateNameFromTranscript = (text: string) => {
+    if (!text) return null;
+    const normalized = text.replace(/\s+/g, " ").trim();
+    const patterns = [
+      /\b(?:hello,?\s*)?(?:my name is|name is|name's|i am|i'm|im|this is)\s+([A-Za-z][A-Za-z'’-]+(?:\s+[A-Za-z][A-Za-z'’-]+){0,2})/i,
+      /\b(?:this is)\s+([A-Za-z][A-Za-z'’-]+(?:\s+[A-Za-z][A-Za-z'’-]+){0,2})/i,
+    ];
+    for (const regex of patterns) {
+      const match = normalized.match(regex);
+      if (match?.[1]) {
+        return match[1].replace(/[.,!?]+$/, "").trim().split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ");
+      }
+    }
+    return null;
+  };
+
+  const extractCandidateNameFromSession = (sessionData: any[]) => {
+    for (const turn of sessionData) {
+      const name = extractCandidateNameFromTranscript(turn.transcript || "");
+      if (name) return name;
+    }
+    return null;
+  };
+
   const handleEndInterview = (finalReport?: any) => {
+    if (isEndingInterviewRef.current) return;
     isEndingInterviewRef.current = true;
-    
-    document.removeEventListener("fullscreenchange", handleFullscreenChange);
-    document.removeEventListener("visibilitychange", handleVisibilityChange);
-    window.removeEventListener("blur", handleBlur);
-    window.speechSynthesis.cancel();
 
-    // Save final turn if not already saved via loop
-    if (transcript.trim() && !finalReport) {
-      const sessionData = JSON.parse(localStorage.getItem("hireflow_session") || "[]");
-      sessionData.push({
-        question: questionIndex,
-        transcript,
-        telemetry,
-        violations
+    try {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleBlur);
+      window.speechSynthesis.cancel();
+
+      // Save final turn if not already saved via loop
+      if (transcript.trim()) {
+        const sessionData = parseSessionData();
+        const existingTurnIndex = sessionData.findIndex((turn: any) => turn.question === questionIndex);
+        const newTurn = {
+          question: questionIndex,
+          transcript,
+          telemetry,
+          violations
+        };
+        if (existingTurnIndex >= 0) {
+          sessionData[existingTurnIndex] = newTurn;
+        } else {
+          sessionData.push(newTurn);
+        }
+        localStorage.setItem("hireflow_session", JSON.stringify(sessionData));
+
+        const extractedName = extractCandidateNameFromTranscript(transcript) || extractCandidateNameFromSession(sessionData);
+        if (extractedName) {
+          localStorage.setItem("hireflow_candidate_name", extractedName);
+          try {
+            const resumeDataRaw = localStorage.getItem("hireflow_resume_data") || "{}";
+            const resumeData = JSON.parse(resumeDataRaw);
+            if (!resumeData.name) {
+              resumeData.name = extractedName;
+              localStorage.setItem("hireflow_resume_data", JSON.stringify(resumeData));
+            }
+          } catch (e) {
+            console.error("Failed to update resume data with extracted name:", e);
+          }
+        }
+      }
+      
+      if (finalReport) {
+        const extractedNameFromReport = extractCandidateNameFromTranscript(finalReport?.candidate_intro || "") || extractCandidateNameFromSession(parseSessionData());
+        if (extractedNameFromReport) {
+          localStorage.setItem("hireflow_candidate_name", extractedNameFromReport);
+          try {
+            const resumeDataRaw = localStorage.getItem("hireflow_resume_data") || "{}";
+            const resumeData = JSON.parse(resumeDataRaw);
+            if (!resumeData.name) {
+              resumeData.name = extractedNameFromReport;
+              localStorage.setItem("hireflow_resume_data", JSON.stringify(resumeData));
+            }
+          } catch (e) {
+            console.error("Failed to update resume data with extracted name from report:", e);
+          }
+        }
+        localStorage.setItem("hireflow_final_report", JSON.stringify(finalReport));
+      }
+
+      if (recognitionRef.current) {
+        console.log("[RECOGNITION_STOPPED]");
+        try { recognitionRef.current.stop(); } catch(e){}
+        console.log("[RECOGNITION_ABORTED]");
+        try { recognitionRef.current.abort(); } catch(e){}
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onstart = null;
+        console.log("[RECOGNITION_DESTROYED]");
+        recognitionRef.current = null;
+      }
+      isRecordingRef.current = false;
+      console.log("[MIC_STOPPED]");
+      stopAllInterviewResources();
+      console.log("[CAMERA_STOPPED]");
+      console.log("[STREAM_CLEANED]");
+    } catch (err) {
+      console.error("Error during end interview cleanup:", err);
+    }
+
+    try {
+      console.log("[REPORT_GENERATION] Scheduling navigation to processing page");
+      window.requestAnimationFrame(() => {
+        try {
+          navigate("/processing", { replace: true });
+        } catch (err) {
+          console.error("Navigation to processing failed, redirecting to results:", err);
+          navigate("/results", { replace: true });
+        }
       });
-      localStorage.setItem("hireflow_session", JSON.stringify(sessionData));
+    } catch (err) {
+      console.error("Navigation scheduling failed, redirecting to results:", err);
+      navigate("/results", { replace: true });
     }
-    
-    if (finalReport) {
-      localStorage.setItem("hireflow_final_report", JSON.stringify(finalReport));
-    }
-
-    if (recognitionRef.current) {
-      console.log("[RECOGNITION_STOPPED]");
-      try { recognitionRef.current.stop(); } catch(e){}
-      console.log("[RECOGNITION_ABORTED]");
-      try { recognitionRef.current.abort(); } catch(e){}
-      recognitionRef.current.onresult = null;
-      recognitionRef.current.onend = null;
-      recognitionRef.current.onerror = null;
-      recognitionRef.current.onstart = null;
-      console.log("[RECOGNITION_DESTROYED]");
-      recognitionRef.current = null;
-    }
-    isRecordingRef.current = false;
-    console.log("[MIC_STOPPED]");
-    stopAllInterviewResources();
-    console.log("[CAMERA_STOPPED]");
-    console.log("[STREAM_CLEANED]");
-
-    console.log("[REPORT_GENERATION] Navigating to processing page");
-    navigate("/processing");
   };
 
   const handleFrameCaptured = async (b64: string) => {
@@ -593,17 +686,17 @@ export default function LiveInterviewPage() {
         body: JSON.stringify({ image: b64, session_id: localStorage.getItem("hireflow_session_id") })
       });
       const data = await res.json();
-      if (!data.error) {
-        const currentTelemetry = {
-          timestamp: Date.now(),
-          faceDetected: data.face_detected,
-          emotion: data.emotion,
-          confidence: data.confidence_score,
-          attention: data.attention_score,
-          eyeContact: data.eye_contact ? 100 : 0
-        };
-        setTelemetry(currentTelemetry);
+      const currentTelemetry = {
+        timestamp: Date.now(),
+        faceDetected: !!data.face_detected,
+        emotion: data.error ? "Neutral" : data.emotion || "Neutral",
+        confidence: data.error ? 0 : data.confidence_score || 0,
+        attention: data.error ? 0 : data.attention_score || 0,
+        eyeContact: data.error ? 0 : data.eye_contact ? 100 : 0
+      };
+      setTelemetry(currentTelemetry);
 
+      if (!data.error) {
         // Sync live telemetry with backend for Admin Dashboard
         const sessionId = localStorage.getItem("hireflow_session_id");
         if (sessionId) {
@@ -621,6 +714,15 @@ export default function LiveInterviewPage() {
         }
       }
     } catch (e) {
+      const currentTelemetry = {
+        timestamp: Date.now(),
+        faceDetected: false,
+        emotion: "Neutral",
+        confidence: 0,
+        attention: 0,
+        eyeContact: 0
+      };
+      setTelemetry(currentTelemetry);
       // Silently ignore polling errors to not interrupt interview
     }
   };
@@ -737,7 +839,7 @@ export default function LiveInterviewPage() {
           <div className="flex items-center justify-end pt-8 mt-6 border-t border-white/[0.06]">
             <div className="flex flex-wrap items-center gap-3 justify-end">
               <button 
-                onClick={handleEndInterview}
+                onClick={() => handleEndInterview()}
                 className="px-6 py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-medium rounded-xl transition-colors flex items-center gap-2"
               >
                 <PhoneOff className="w-4 h-4" />
@@ -757,7 +859,7 @@ export default function LiveInterviewPage() {
 
         {/* Right: Live Metrics */}
         <div className="lg:col-span-1 flex flex-col gap-6">
-          <CandidateCamera onFrameCaptured={handleFrameCaptured} />
+          <CandidateCamera faceDetected={telemetry.faceDetected} onFrameCaptured={handleFrameCaptured} />
           
           <div className="bg-[rgba(10,15,25,0.72)] backdrop-blur-md border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-2xl flex-1 p-6 flex flex-col">
             <h3 className="text-sm font-medium text-zinc-400 mb-6 uppercase tracking-wider flex items-center gap-2">

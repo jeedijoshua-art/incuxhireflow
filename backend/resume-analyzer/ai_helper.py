@@ -112,13 +112,17 @@ class AIHelper:
                 return schema_class.model_validate_json(content)
             except Exception as e:
                 print(f"[AIHelper] Groq fallback failed: {e}")
-                raise e
-        
-        raise ValueError("Neither Gemini nor Groq API is available or functional.")
+
+        # Fallback structured output if AI providers are unavailable or failed
+        fallback_json = {}
+        for field_name, field_info in schema_class.model_fields.items():
+            fallback_json[field_name] = None
+        return schema_class.model_validate(fallback_json)
 
     def generate_text(self, prompt: str, system_prompt: str = "You are a helpful assistant.") -> str:
         """
         Generates raw text. Tries Gemini first, falls back to Groq Llama 3.3.
+        If both providers fail, returns a conservative fallback response.
         """
         if self.gemini_available:
             try:
@@ -147,6 +151,6 @@ class AIHelper:
                 return response.choices[0].message.content.strip()
             except Exception as e:
                 print(f"[AIHelper] Groq text fallback failed: {e}")
-                raise e
-                
-        raise ValueError("Neither Gemini nor Groq API is available or functional.")
+
+        # Fallback text if no AI provider is available or all failed
+        return "Unable to provide a rich answer due to AI service limits. Please try again later."

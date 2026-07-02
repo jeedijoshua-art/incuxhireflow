@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "motion/react";
 import { CheckCircle2, Loader2, Sparkles, Cpu } from "lucide-react";
+import { getResumeState, clearResumeState } from "../utils/resumeState";
 
 const STAGES = [
   "Resume Uploaded",
@@ -17,7 +18,11 @@ const STAGES = [
 export default function ResumeAnalysisPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { file, targetRole, generatingAI } = location.state || {};
+  const locationState = location.state || {};
+  const persistedState = getResumeState();
+  const file = locationState.file || persistedState.file;
+  const targetRole = locationState.targetRole || persistedState.targetRole;
+  const generatingAI = locationState.generatingAI || persistedState.generatingAI;
 
   const [progress, setProgress] = useState(0);
   const [currentStage, setCurrentStage] = useState(0);
@@ -25,7 +30,7 @@ export default function ResumeAnalysisPage() {
   useEffect(() => {
     document.title = "HireFlow | Analyzing Resume";
 
-    if (!file || !targetRole) {
+    if (!file) {
       navigate("/dashboard");
       return;
     }
@@ -52,13 +57,24 @@ export default function ResumeAnalysisPage() {
           if (!res.ok) throw new Error("Failed to generate questions");
           const data = await res.json();
           
+          // Persist extracted resume metadata for later report display and PDF generation
+          const candidateInfo = {
+            ...(data.candidate_info || {}),
+            applied_role: targetRole || data.candidate_info?.applied_role || "Not Available",
+          };
+          localStorage.setItem("hireflow_resume_data", JSON.stringify(candidateInfo));
+          localStorage.setItem("hireflow_target_role", candidateInfo.applied_role || "Not Available");
+          localStorage.setItem("hireflow_interview_mode", "resume-ai");
+          
           clearInterval(progressInterval);
           setProgress(100);
           setCurrentStage(STAGES.length - 1);
           
           const generatedQuestions = data.questions;
+          localStorage.setItem("hireflow_generated_questions", JSON.stringify(generatedQuestions));
           
           setTimeout(() => {
+            clearResumeState();
             navigate("/interview-preparation", { 
               state: { file, targetRole, interviewMode: "resume-ai", generatedQuestions } 
             });
@@ -96,6 +112,7 @@ export default function ResumeAnalysisPage() {
       if (stepCount >= steps) {
         clearInterval(interval);
         setTimeout(() => {
+          clearResumeState();
           navigate("/interview-mode", { state: { file, targetRole } });
         }, 800);
       }
@@ -125,7 +142,7 @@ export default function ResumeAnalysisPage() {
               Analyzing Resume <Sparkles className="w-6 h-6 text-teal-400" />
             </h1>
             <p className="text-zinc-400 text-lg">
-              Our AI is reviewing your profile for the <span className="text-teal-400 font-medium">{targetRole}</span> role.
+              Our AI is reviewing your profile{targetRole ? ` for the ${targetRole} role.` : "."}
             </p>
           </div>
         </motion.div>

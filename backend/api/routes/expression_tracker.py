@@ -75,6 +75,7 @@ async def check_face(request: Request):
         raw_confidence_score = 100.0
         
         # Get active session config
+        from routes.interview_engine import sessions
         config = sessions.get(session_id, {}).get("config", PlatformConfigurationService.get_config())
         t_config = config.get("telemetry", {})
         

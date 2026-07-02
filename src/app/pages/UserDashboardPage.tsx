@@ -3,6 +3,7 @@ import { useState, DragEvent } from "react";
 import { motion } from "motion/react";
 import { UploadCloud, File as FileIcon, ArrowRight, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { setResumeState } from "../utils/resumeState";
 
 export default function UserDashboardPage() {
   useEffect(() => {
@@ -12,7 +13,7 @@ export default function UserDashboardPage() {
   const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [targetRole, setTargetRole] = useState("Frontend Developer");
+  const [targetRole, setTargetRole] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
@@ -96,17 +97,18 @@ export default function UserDashboardPage() {
           <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-4">2. Role Selection</h2>
           <div className="grid grid-cols-1 gap-6">
             <div>
-              <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">Target Job Role</label>
-              <input type="text" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} placeholder="e.g. Frontend Developer" className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/[0.06] rounded-xl px-4 py-3 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-teal-500/50" />
+              <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">Target Job Role <span className="text-zinc-400">(optional)</span></label>
+              <input type="text" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} placeholder="e.g. Frontend Developer (optional)" className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/[0.06] rounded-xl px-4 py-3 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-teal-500/50" />
             </div>
           </div>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="flex justify-end pt-4">
           <button 
-            disabled={!file || !targetRole.trim()}
+            disabled={!file}
             onClick={() => {
               if (!file) return;
+              setResumeState({ file, targetRole });
               navigate("/resume-analysis", { state: { file, targetRole } });
             }}
             className="px-8 py-4 bg-teal-600 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed hover:bg-teal-500 text-white font-medium rounded-xl transition-colors flex items-center gap-2 shadow-lg shadow-teal-900/20"

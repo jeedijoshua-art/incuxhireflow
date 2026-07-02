@@ -41,13 +41,14 @@ export default function InterviewModePage() {
 
   const [selectedMode, setSelectedMode] = useState<string | null>(null);
 
-  if (!file || !targetRole) {
+  if (!file) {
     navigate("/dashboard");
     return null;
   }
 
   const handleSelect = (modeId: string) => {
     setSelectedMode(modeId);
+    localStorage.setItem("hireflow_interview_mode", modeId);
     setTimeout(() => {
       if (modeId === "resume-ai") {
         navigate("/resume-analysis", {

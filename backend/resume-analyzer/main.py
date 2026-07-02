@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import json
 import argparse
@@ -20,6 +21,40 @@ class ResumeAnalyzerOutput(BaseModel):
     skills: list[str]
     experience_years: int
     candidate_score: int
+
+def extract_candidate_info(resume_text: str, target_role: str):
+    email_match = re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", resume_text)
+    phone_match = re.search(r"(\+?\d[\d\s\-\(\)]{7,}\d)", resume_text)
+    lines = [line.strip() for line in resume_text.splitlines() if line.strip()]
+    name = None
+    stop_words = {"experience", "education", "skills", "summary", "objective", "professional", "project", "contact", "address", "phone", "email", "linkedin", "github"}
+    for line in lines[:10]:
+        lower = line.lower()
+        if email_match and email_match.group(0).lower() in lower:
+            continue
+        if phone_match and phone_match.group(0).lower() in lower:
+            continue
+        if any(word in lower for word in stop_words):
+            continue
+        if 1 < len(line.split()) <= 5 and re.search(r"[A-Z][a-z]+", line):
+            name = line
+            break
+    if not name and lines:
+        name = lines[0]
+
+    summary = ""
+    summary_lines = [line for line in lines[:6] if line and line != name and (not email_match or email_match.group(0) not in line) and (not phone_match or phone_match.group(0) not in line)]
+    if summary_lines:
+        summary = " ".join(summary_lines[1:3]).strip()
+
+    return {
+        "name": name,
+        "email": email_match.group(0) if email_match else None,
+        "phone": phone_match.group(0).strip() if phone_match else None,
+        "applied_role": target_role,
+        "summary": summary or None,
+    }
+
 
 def run_resume_analysis(resume_path: str, target_role: str = "Software Engineer", job_desc_path: str = None):
     # 1. Parse Resume
@@ -70,9 +105,12 @@ def run_resume_analysis(resume_path: str, target_role: str = "Software Engineer"
     questions = q_generator.generate_questions(resume_text, target_role, skills=skills, experience_years=exp_years)
     print(f"[+] Generated {len(questions)} tailored questions.")
 
+    candidate_info = extract_candidate_info(resume_text, target_role)
+
     # Format full result
     full_result = {
         "summary": output.model_dump(),
+        "candidate_info": candidate_info,
         "detailed_experience": [exp.model_dump() for exp in exp_result.experiences],
         "detailed_score": score_result.model_dump(),
         "questions": [q.model_dump() for q in questions]

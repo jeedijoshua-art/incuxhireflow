@@ -8,10 +8,12 @@ import {
 
 interface CandidateCameraProps {
   onFrameCaptured?: (b64: string) => void;
+  faceDetected?: boolean;
 }
 
 const CandidateCamera = React.memo(function CandidateCamera({
   onFrameCaptured,
+  faceDetected = false,
 }: CandidateCameraProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -94,7 +96,11 @@ const CandidateCamera = React.memo(function CandidateCamera({
           AI Environment Status
         </h4>
         <div className="grid grid-cols-2 gap-y-3 gap-x-2">
-          <StatusIndicator label="Face Detected" value="Active" />
+          <StatusIndicator
+            label="Face Detected"
+            value={faceDetected ? "Yes" : "No"}
+            status={faceDetected ? "success" : "error"}
+          />
           <StatusIndicator label="Lighting" value="Good" />
           <StatusIndicator label="Camera Quality" value="HD" />
         </div>
@@ -103,7 +109,14 @@ const CandidateCamera = React.memo(function CandidateCamera({
   );
 });
 
-function StatusIndicator({ label, value }: { label: string; value: string }) {
+function StatusIndicator({ label, value, status }: { label: string; value: string; status?: "success" | "error" | "warning" }) {
+  const dotClass =
+    status === "success"
+      ? "bg-emerald-400"
+      : status === "error"
+      ? "bg-red-400"
+      : "bg-teal-400";
+
   return (
     <div className="flex flex-col gap-1">
       <span className="text-[10px] text-zinc-500 uppercase tracking-wider">
@@ -113,7 +126,7 @@ function StatusIndicator({ label, value }: { label: string; value: string }) {
         <motion.div
           animate={{ opacity: [0.4, 1, 0.4] }}
           transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-          className="w-2 h-2 rounded-full bg-teal-400"
+          className={`w-2 h-2 rounded-full ${dotClass}`}
         />
         {value}
       </div>

@@ -18,10 +18,14 @@ function getExpectedStructure(category: string, isTechnical: boolean) {
   return ["Introduction", "Education", "Technical Skills", "Projects", "Achievements", "Career Goals"];
 }
 
-function getSuggestion(evalData: any) {
-  if (evalData.communication < 70) return "Your explanation had good points but could be structured better. Try using the STAR method to improve clarity.";
-  if (evalData.confidence < 70) return "You sound a bit hesitant. Practice delivering your answers with more conviction and steady pacing.";
-  if (evalData.keyword_match < 70) return "Your explanation covered the basic concepts well. Try adding specific technical terms and a practical example from one of your projects to strengthen your answer.";
+function getSuggestion(evalData: any = {}) {
+  const communication = Number(evalData.communication ?? 0);
+  const confidence = Number(evalData.confidence ?? 0);
+  const keywordMatch = Number(evalData.keyword_match ?? 0);
+
+  if (communication < 70) return "Your explanation had good points but could be structured better. Try using the STAR method to improve clarity.";
+  if (confidence < 70) return "You sound a bit hesitant. Practice delivering your answers with more conviction and steady pacing.";
+  if (keywordMatch < 70) return "Your explanation covered the basic concepts well. Try adding specific technical terms and a practical example from one of your projects to strengthen your answer.";
   return "Excellent response! You clearly articulated the core concepts and demonstrated strong understanding.";
 }
 
@@ -49,6 +53,7 @@ export default function ResultsDashboardPage() {
   const [allViolations, setAllViolations] = useState<string[]>([]);
   const [sessionConfig, setSessionConfig] = useState<any>(null);
   const [interviewType, setInterviewType] = useState<string>("recruiter");
+  const [resumeInfo, setResumeInfo] = useState<any>({});
 
   useEffect(() => {
     document.title = "HireFlow | Results";
@@ -68,9 +73,16 @@ export default function ResultsDashboardPage() {
     requestFullscreen();
 
     const data: SessionTurn[] = JSON.parse(localStorage.getItem("hireflow_session") || "[]");
-    setSessionData(data);
+    const uniqueData = data.filter((turn, index, self) => self.findIndex(t => t.question === turn.question) === index);
+    if (uniqueData.length !== data.length) {
+      localStorage.setItem("hireflow_session", JSON.stringify(uniqueData));
+    }
+    setSessionData(uniqueData);
 
-    if (data.length > 0) {
+    const savedResumeData = JSON.parse(localStorage.getItem("hireflow_resume_data") || "{}");
+    setResumeInfo(savedResumeData);
+
+    if (uniqueData.length > 0) {
       try {
         const reportStr = localStorage.getItem("hireflow_final_report");
         if (reportStr) {
@@ -143,10 +155,20 @@ export default function ResultsDashboardPage() {
   const conceptScore = aiReport?.concept_match_avg || 0;
   const telemetryScore = aiReport?.telemetry_score || 0;
   
+  const extractedName = localStorage.getItem("hireflow_candidate_name");
+  const candidateName = resumeInfo?.name || extractedName || "Not Available";
+  const candidateEmail = resumeInfo?.email || "Not Available";
+  const candidatePhone = resumeInfo?.phone || "Not Available";
+  const appliedRole = resumeInfo?.applied_role || localStorage.getItem("hireflow_target_role") || "Not Available";
+  const experienceYears = resumeInfo?.experience_years || 0;
+  const resumeSummary = resumeInfo?.summary || "";
+  const resumeSkills = Array.isArray(resumeInfo?.skills) ? resumeInfo.skills : [];
+
   const strengths = aiReport?.strengths || [];
   const improvements = aiReport?.areas_to_improve || [];
   const evaluations = aiReport?.evaluations || [];
   const questionsMeta = aiReport?.questions || [];
+  const totalQuestions = Math.max(sessionData.length, questionsMeta.length, 10);
 
   return (
     <div className="p-8 max-w-7xl mx-auto w-full font-sans text-zinc-100 selection:bg-teal-500/30">
@@ -167,6 +189,37 @@ export default function ResultsDashboardPage() {
             <button onClick={() => generatePDFReport(sessionData)} className="flex items-center gap-2 px-6 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-teal-400 border border-teal-500/20 font-bold rounded-xl transition-all shadow-[0_0_15px_rgba(45,212,191,0.1)] hover:shadow-[0_0_20px_rgba(45,212,191,0.2)]">
               <Download className="w-4 h-4" /> Export PDF
             </button>
+          )}
+        </div>
+      </motion.div>
+
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-[rgba(10,15,25,0.72)] backdrop-blur-md border border-[rgba(45,212,191,0.08)] rounded-2xl p-6 shadow-[0_0_15px_rgba(45,212,191,0.05)]">
+          <div className="text-xs uppercase tracking-widest text-teal-400 font-semibold mb-4">Candidate Profile</div>
+          <div className="space-y-3 text-sm text-zinc-300">
+            <div><span className="font-semibold text-zinc-100">Name:</span> {candidateName}</div>
+            <div><span className="font-semibold text-zinc-100">Email:</span> {candidateEmail}</div>
+            <div><span className="font-semibold text-zinc-100">Phone:</span> {candidatePhone}</div>
+            <div><span className="font-semibold text-zinc-100">Applied Role:</span> {appliedRole}</div>
+            <div><span className="font-semibold text-zinc-100">Experience:</span> {experienceYears ? `${experienceYears} years` : "Not available"}</div>
+          </div>
+        </div>
+        <div className="bg-[rgba(10,15,25,0.72)] backdrop-blur-md border border-[rgba(45,212,191,0.08)] rounded-2xl p-6 shadow-[0_0_15px_rgba(45,212,191,0.05)]">
+          <div className="text-xs uppercase tracking-widest text-teal-400 font-semibold mb-4">Resume Snapshot</div>
+          {resumeSummary ? (
+            <p className="text-sm text-zinc-300 leading-6">{resumeSummary}</p>
+          ) : (
+            <p className="text-sm text-zinc-500">No summary extracted from resume.</p>
+          )}
+          {resumeSkills.length > 0 && (
+            <div className="mt-4">
+              <div className="text-xs uppercase tracking-widest text-zinc-400 font-semibold mb-2">Key Skills</div>
+              <div className="flex flex-wrap gap-2">
+                {resumeSkills.slice(0, 8).map((skill: string, i: number) => (
+                  <span key={i} className="px-3 py-1 rounded-full bg-teal-500/10 text-teal-200 text-xs font-medium">{skill}</span>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       </motion.div>
@@ -264,17 +317,19 @@ export default function ResultsDashboardPage() {
             </tr>
           </thead>
           <tbody>
-            {sessionData.map((turn, idx) => {
-              const evalData = evaluations[idx] || {};
-              const score = Math.round(((evalData.answer_quality || 0) + (evalData.concept_match || 0) + (evalData.keyword_match || 0)) / 3) || 0;
-              const status = getStatusLabel(score);
+            {Array.from({ length: totalQuestions }, (_, idx) => {
+              const turn = sessionData.find(t => t.question === idx + 1);
+              const evalData = turn ? evaluations[idx] || {} : undefined;
+              const attempted = !!turn;
+              const score = attempted ? Math.round(((evalData?.answer_quality || 0) + (evalData?.concept_match || 0) + (evalData?.keyword_match || 0)) / 3) || 0 : 0;
+              const status = attempted ? getStatusLabel(score) : getStatusLabel(0);
               return (
                 <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                  <td className="px-4 py-4 font-medium text-zinc-200">Question {turn.question}</td>
-                  <td className="px-4 py-4 font-mono">{score}</td>
+                  <td className="px-4 py-4 font-medium text-zinc-200">Question {idx + 1}</td>
+                  <td className="px-4 py-4 font-mono">{attempted ? score : 0}</td>
                   <td className="px-4 py-4">
                     <span className={`px-2 py-1 text-xs font-semibold rounded-md border ${status.bg} ${status.border} ${status.color}`}>
-                      {status.label}
+                      {attempted ? status.label : "Not Attempted"}
                     </span>
                   </td>
                 </tr>
@@ -287,32 +342,40 @@ export default function ResultsDashboardPage() {
       {/* Question Cards */}
       <div className="space-y-6">
         <h3 className="text-2xl font-bold text-zinc-100 mb-6 border-b border-white/10 pb-4">Detailed Question Analysis</h3>
-        {sessionData.map((turn, idx) => {
-          const evalData = evaluations[idx] || {};
-          const meta = questionsMeta[idx] || { metadata: {} };
-          const metadata = meta.metadata || {};
+        {Array.from({ length: totalQuestions }, (_, idx) => {
+          const turn = sessionData.find(t => t.question === idx + 1);
+          const evalData = turn ? evaluations[idx] || {} : undefined;
+          const meta = questionsMeta[idx] || {};
+          const metadata = (meta as any).metadata || meta || {};
+          const attempted = !!turn;
           
-          const score = Math.round(((evalData.answer_quality || 0) + (evalData.concept_match || 0) + (evalData.keyword_match || 0)) / 3) || 0;
-          const status = getStatusLabel(score);
+          const score = attempted ? Math.round(((evalData?.answer_quality || 0) + (evalData?.concept_match || 0) + (evalData?.keyword_match || 0)) / 3) || 0 : 0;
+          const status = attempted ? getStatusLabel(score) : getStatusLabel(0);
           
-          const expectedKeywords = metadata.expected_keywords || [];
-          const expectedConcepts = metadata.expected_concepts || [];
+          const expectedKeywords = (metadata.expected_keywords || metadata.expectedKeywords || []) as string[];
+          const expectedConcepts = (metadata.expected_concepts || metadata.expectedConcepts || []) as string[];
+          const idealAnswer =
+            metadata.ideal_answer ||
+            metadata.idealAnswer ||
+            ((metadata.metadata || {}) as any).ideal_answer ||
+            ((metadata.metadata || {}) as any).idealAnswer ||
+            "";
           
-          let coveredWell = evalData.strengths && evalData.strengths.length > 0 
-            ? evalData.strengths 
-            : (expectedConcepts.length > 0 ? expectedConcepts : ["Communication", "Confidence"]);
-          if (!evalData.strengths && evalData.concept_match < 50) coveredWell = ["Attempted Answer"];
+          let coveredWell = attempted
+            ? (evalData?.strengths && evalData.strengths.length > 0 ? evalData.strengths : (expectedConcepts.length > 0 ? expectedConcepts : ["Communication", "Confidence"]))
+            : ["Not attempted"];
+          if (attempted && !evalData?.strengths && evalData?.concept_match < 50) coveredWell = ["Attempted Answer"];
           
-          const missingAreas = parseMissingConcepts(evalData.explanation, expectedKeywords, evalData.keyword_match);
+          const missingAreas = attempted ? parseMissingConcepts(evalData?.explanation, expectedKeywords, evalData?.keyword_match) : ["Question was not attempted."];
           const expectedStructure = getExpectedStructure(metadata.category || "General", metadata.difficulty === "Hard");
-          const aiSuggestion = getSuggestion(evalData);
+          const aiSuggestion = attempted ? getSuggestion(evalData || {}) : "This question was not attempted. No AI feedback is available.";
 
           return (
             <motion.div key={idx} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 + idx * 0.1 }} className="bg-[rgba(10,15,25,0.72)] backdrop-blur-md border border-[rgba(45,212,191,0.08)] rounded-2xl overflow-hidden shadow-[0_0_15px_rgba(45,212,191,0.05)]">
               {/* Card Header */}
               <div className="bg-white/5 border-b border-white/10 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <div className="text-teal-400 text-sm font-semibold mb-2 uppercase tracking-wider">Question {turn.question}</div>
+                  <div className="text-teal-400 text-sm font-semibold mb-2 uppercase tracking-wider">Question {idx + 1}</div>
                   <h4 className="text-lg font-medium text-zinc-100">{meta.question || "Unknown Question"}</h4>
                 </div>
                 <div className="flex flex-col items-end shrink-0">
@@ -320,7 +383,7 @@ export default function ResultsDashboardPage() {
                   <span className={`px-2 py-0.5 text-xs font-semibold rounded border ${status.bg} ${status.border} ${status.color}`}>
                     {status.label}
                   </span>
-                {evalData.technical_depth && <span className="mt-2 text-[10px] uppercase tracking-wider font-semibold text-teal-400 bg-teal-400/10 px-2 py-1 rounded">Depth: {evalData.technical_depth}</span>}
+{evalData?.technical_depth && <span className="mt-2 text-[10px] uppercase tracking-wider font-semibold text-teal-400 bg-teal-400/10 px-2 py-1 rounded">Depth: {evalData.technical_depth}</span>}
                 </div>
               </div>
               
@@ -380,6 +443,13 @@ export default function ResultsDashboardPage() {
                     </div>
                   </div>
 
+                  {idealAnswer && (
+                    <div className="bg-zinc-950/70 border border-zinc-800 p-4 rounded-xl">
+                      <h5 className="text-sm font-bold text-zinc-200 uppercase tracking-wider mb-3">Expected Answer</h5>
+                      <p className="text-sm text-zinc-300 leading-6">{idealAnswer}</p>
+                    </div>
+                  )}
+
                   <div className="bg-teal-500/10 border border-teal-500/20 p-4 rounded-xl flex gap-3">
                     <Lightbulb className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
                     <div>
@@ -394,11 +464,11 @@ export default function ResultsDashboardPage() {
                   <h5 className="text-sm font-bold text-zinc-300 uppercase tracking-wider mb-5 border-b border-white/5 pb-2">Visual Scores</h5>
                   <div className="space-y-5">
                     {[
-                      { label: "Answer Quality", score: evalData.answer_quality || 0, color: "bg-blue-500" },
-                      { label: "Keyword Coverage", score: evalData.keyword_match || 0, color: "bg-emerald-500" },
-                      { label: "Concept Coverage", score: evalData.concept_match || 0, color: "bg-indigo-500" },
-                      { label: "Communication", score: evalData.communication || 0, color: "bg-teal-500" },
-                      { label: "Confidence", score: evalData.confidence || 0, color: "bg-violet-500" },
+                      { label: "Answer Quality", score: evalData?.answer_quality || 0, color: "bg-blue-500" },
+                      { label: "Keyword Coverage", score: evalData?.keyword_match || 0, color: "bg-emerald-500" },
+                      { label: "Concept Coverage", score: evalData?.concept_match || 0, color: "bg-indigo-500" },
+                      { label: "Communication", score: evalData?.communication || 0, color: "bg-teal-500" },
+                      { label: "Confidence", score: evalData?.confidence || 0, color: "bg-violet-500" },
                     ].map((metric) => (
                       <div key={metric.label}>
                         <div className="flex justify-between text-xs mb-1.5">

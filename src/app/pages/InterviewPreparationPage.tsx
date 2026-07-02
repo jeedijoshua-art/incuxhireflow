@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "motion/react";
 import { 
@@ -10,9 +10,32 @@ import {
 export default function InterviewPreparationPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { file, targetRole, interviewMode, generatedQuestions } = location.state || {};
+  const locationState = location.state || {};
+  const { file, generatedQuestions: locationGeneratedQuestions } = locationState as {
+    file?: File;
+    targetRole?: string;
+    interviewMode?: string;
+    generatedQuestions?: any[];
+  };
+  const targetRole = (locationState as any)?.targetRole || localStorage.getItem("hireflow_target_role") || "";
+  const interviewMode = (locationState as any)?.interviewMode || localStorage.getItem("hireflow_interview_mode") || "recruiter";
+  const generatedQuestions = locationGeneratedQuestions;
   const [isStarting, setIsStarting] = useState(false);
   const [templateInfo, setTemplateInfo] = useState<{duration: number, questions: number} | null>(null);
+
+  const restoredGeneratedQuestions = useMemo(() => {
+    if (Array.isArray(generatedQuestions) && generatedQuestions.length > 0) {
+      return generatedQuestions;
+    }
+    try {
+      const saved = localStorage.getItem("hireflow_generated_questions");
+      if (!saved) return [];
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }, [generatedQuestions]);
 
   useEffect(() => {
     if (interviewMode === "recruiter") {
@@ -31,45 +54,110 @@ export default function InterviewPreparationPage() {
     }
   }, [interviewMode, targetRole]);
 
-  if (!file || !targetRole) {
+  useEffect(() => {
+    if (interviewMode) {
+      localStorage.setItem("hireflow_interview_mode", interviewMode);
+    }
+    if (targetRole) {
+      localStorage.setItem("hireflow_target_role", targetRole);
+    }
+  }, [interviewMode, targetRole]);
+
+  if (!file) {
     navigate("/dashboard");
     return null;
   }
 
+  useEffect(() => {
+    if (interviewMode === "resume-ai" && Array.isArray(generatedQuestions) && generatedQuestions.length > 0) {
+      localStorage.setItem("hireflow_generated_questions", JSON.stringify(generatedQuestions));
+    }
+  }, [interviewMode, generatedQuestions]);
+
   const handleStartInterview = async () => {
     setIsStarting(true);
+
+    if (interviewMode === "resume-ai" && (!Array.isArray(restoredGeneratedQuestions) || restoredGeneratedQuestions.length === 0)) {
+      alert("Resume AI interview requires generated questions. Please return to the resume analysis step and try again.");
+      setIsStarting(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 10000);
+
     try {
-      const payload = {
-        resume_text: "Mock Resume Content", // Will be replaced by actual parsed text in future
+      const savedResumeData = JSON.parse(localStorage.getItem("hireflow_resume_data") || "{}") || {};
+      const payload: any = {
+        resume_text:
+          savedResumeData.summary ||
+          savedResumeData.name ||
+          `Interview for ${targetRole || "selected role"}`,
         target_role: targetRole,
         difficulty: "medium",
-        max_questions: 10,
-        generated_questions: generatedQuestions || null,
-        interview_mode: interviewMode
+        max_questions: interviewMode === "recruiter" ? templateInfo?.questions || 10 : restoredGeneratedQuestions.length || 10,
+        interview_mode: interviewMode,
       };
-      
+
+      if (savedResumeData.name) {
+        payload.candidate_name = savedResumeData.name;
+      }
+      if (savedResumeData.email) {
+        payload.candidate_email = savedResumeData.email;
+      }
+      if (interviewMode === "resume-ai") {
+        payload.generated_questions = restoredGeneratedQuestions;
+      }
+
+      console.log("[INTERVIEW_START_REQUEST] Starting interview with payload:", {
+        ...payload,
+        generated_questions:
+          interviewMode === "resume-ai" ? generatedQuestions : undefined,
+      });
+
       const res = await fetch("http://localhost:8000/interview/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: controller.signal
       });
-      
-      if (!res.ok) throw new Error("Failed to start interview");
-      
-      const data = await res.json();
-      if (data.session_id) {
-        localStorage.setItem("hireflow_session_id", data.session_id);
-        if (data.config) {
-          localStorage.setItem("hireflow_session_config", JSON.stringify(data.config));
-        }
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(`Failed to start interview: ${res.status} ${res.statusText}${errText ? ` - ${errText}` : ""}`);
       }
-      
+
+      const data = await res.json();
+      if (!data.session_id) {
+        console.error("Interview start returned invalid response:", data);
+        throw new Error("Interview initialization failed. Please try again.");
+      }
+
+      localStorage.setItem("hireflow_session_id", data.session_id);
+      if (data.config) {
+        localStorage.setItem("hireflow_session_config", JSON.stringify(data.config));
+      }
+
+      // Reset any previous interview state so the new session starts cleanly
+      localStorage.setItem("hireflow_session", JSON.stringify([]));
+      localStorage.removeItem("hireflow_final_report");
+      if (interviewMode === "resume-ai") {
+        localStorage.removeItem("hireflow_generated_questions");
+      }
+
+      setIsStarting(false);
       // Navigate to readiness check first, passing state along
       navigate("/interview-readiness", { state: { file, targetRole, interviewMode } });
-    } catch (error) {
-      console.error(error);
-      alert("Failed to initialize interview. Is the backend running?");
+    } catch (error: any) {
+      if (error.name === "AbortError") {
+        alert("Interview initialization timed out. Please check your backend and network connection.");
+      } else {
+        console.error(error);
+        alert(error?.message || "Failed to initialize interview. Is the backend running?");
+      }
       setIsStarting(false);
+    } finally {
+      window.clearTimeout(timeoutId);
     }
   };
 
@@ -105,7 +193,7 @@ export default function InterviewPreparationPage() {
                 <OverviewItem label="Target Role" value={targetRole} icon={<Briefcase className="w-4 h-4 text-zinc-400" />} />
                 <OverviewItem label="Mode" value={getModeLabel()} icon={<Cpu className="w-4 h-4 text-zinc-400" />} />
                 <OverviewItem label="Duration" value={interviewMode === 'recruiter' && templateInfo ? `~${templateInfo.duration} Mins` : "~30 Mins"} icon={<Clock className="w-4 h-4 text-zinc-400" />} />
-                <OverviewItem label="Questions" value={interviewMode === 'recruiter' && templateInfo ? `${templateInfo.questions} Questions` : "12 Questions"} icon={<MessageSquare className="w-4 h-4 text-zinc-400" />} />
+                <OverviewItem label="Questions" value={interviewMode === 'recruiter' && templateInfo ? `${templateInfo.questions} Questions` : "10 Questions"} icon={<MessageSquare className="w-4 h-4 text-zinc-400" />} />
               </div>
             </motion.div>
 

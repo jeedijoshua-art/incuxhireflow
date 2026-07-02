@@ -203,7 +203,8 @@ async def start_interview(req: StartInterviewRequest):
             print(f"Question Order: {[q.get('question_index') for q in active_questions]}")
             print("="*50)
             
-            flow.state.total_questions = len(unified_questions)
+            selected_questions = unified_questions[:req.max_questions]
+            flow.state.total_questions = min(req.max_questions, len(selected_questions))
             
             sessions[session_id] = {
                 "flow": flow,
@@ -211,7 +212,7 @@ async def start_interview(req: StartInterviewRequest):
                 "evaluator": CandidateEvaluator(),
                 "feedback_gen": FeedbackGenerator(),
                 "interview_mode": "recruiter",
-                "questions": unified_questions,
+                "questions": selected_questions,
                 "candidate_name": req.candidate_name or "Unknown Candidate",
                 "candidate_email": req.candidate_email or "unknown@example.com",
                 "start_time": time.time(),

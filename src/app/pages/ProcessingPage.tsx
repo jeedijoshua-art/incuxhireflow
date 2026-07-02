@@ -13,27 +13,18 @@ const STEPS = [
 ];
 
 export default function ProcessingPage() {
-  useEffect(() => {
-    document.title = "HireFlow | Processing";
-
-    // Ensure Fullscreen
-    const requestFullscreen = async () => {
-      try {
-        if (
-          !document.fullscreenElement &&
-          document.documentElement.requestFullscreen
-        ) {
-          await document.documentElement.requestFullscreen();
-        }
-      } catch (err) {}
-    };
-    requestFullscreen();
-  }, []);
-
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    document.title = "HireFlow | Processing";
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isMounted) return;
+
     let timeout: ReturnType<typeof setTimeout>;
 
     if (currentStep < STEPS.length) {
@@ -42,12 +33,12 @@ export default function ProcessingPage() {
       }, STEPS[currentStep].duration);
     } else {
       timeout = setTimeout(() => {
-        navigate("/results");
+        navigate("/results", { replace: true });
       }, 1000);
     }
 
     return () => clearTimeout(timeout);
-  }, [currentStep, navigate]);
+  }, [currentStep, navigate, isMounted]);
 
   return (
     <motion.div
