@@ -53,7 +53,7 @@ const CandidateCamera = React.memo(function CandidateCamera({
           }
         }
       }
-    }, 1000); // 1 FPS for telemetry
+    }, 5000); // 1 frame every 5 seconds for telemetry
 
     return () => {
       clearInterval(captureInterval);

@@ -26,6 +26,7 @@ from eye_contact_tracker import EyeContactTracker
 from emotion_detector import EmotionAnalysis
 from attention_tracker import AttentionTracker
 from confidence_analyzer import ConfidenceAnalyzer
+from in_memory_services import PlatformConfigurationService
 
 # Stateless trackers
 face_det = FaceDetector()
@@ -41,8 +42,13 @@ def health_check():
 
 @router.post("/api/check_face")
 async def check_face(request: Request):
+    # Import sessions locally to avoid circular dependency
+    from routes.interview_engine import sessions
+    
     data = await request.json()
     b64_data = data.get("image", "")
+    session_id = data.get("session_id")
+    
     if ',' in b64_data:
         b64_data = b64_data.split(',')[1]
         
@@ -62,10 +68,27 @@ async def check_face(request: Request):
             
         h, w, _ = frame.shape
         
-        eye_contact_present = eye_track.check_contact(frame, face_box)
-        raw_attention_score = atten_track.calculate_attention(face_box, eye_contact_present, w)
-        current_emotion = emotion_det.analyze_emotion(face_box, 50)
-        raw_confidence_score = conf_analyze.get_confidence(current_emotion, eye_contact_present, face_box, w, raw_attention_score)
+        # Default fallback values
+        eye_contact_present = True
+        raw_attention_score = 100.0
+        current_emotion = "neutral"
+        raw_confidence_score = 100.0
+        
+        # Get active session config
+        config = sessions.get(session_id, {}).get("config", PlatformConfigurationService.get_config())
+        t_config = config.get("telemetry", {})
+        
+        if t_config.get("enable_eye_tracking", True):
+            eye_contact_present = eye_track.check_contact(frame, face_box)
+            
+        if t_config.get("enable_head_pose", True):
+            raw_attention_score = atten_track.calculate_attention(face_box, eye_contact_present, w)
+            
+        if t_config.get("enable_emotion_detection", True):
+            current_emotion = emotion_det.analyze_emotion(face_box, 50)
+            
+        if t_config.get("enable_confidence_analysis", True):
+            raw_confidence_score = conf_analyze.get_confidence(current_emotion, eye_contact_present, face_box, w, raw_attention_score)
         
         return {
             "face_detected": True,

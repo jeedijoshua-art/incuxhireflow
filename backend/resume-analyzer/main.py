@@ -67,7 +67,7 @@ def run_resume_analysis(resume_path: str, target_role: str = "Software Engineer"
     # 6. Optional Question Generation
     print("[*] Generating tailored interview questions...")
     q_generator = QuestionGenerator()
-    questions = q_generator.generate_questions(resume_text, target_role)
+    questions = q_generator.generate_questions(resume_text, target_role, skills=skills, experience_years=exp_years)
     print(f"[+] Generated {len(questions)} tailored questions.")
 
     # Format full result

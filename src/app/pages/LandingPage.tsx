@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, useInView, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 import {
   Brain,
   ArrowRight,
@@ -126,17 +127,15 @@ function HeroSection() {
   return (
     <section
       id="hero"
-      className="min-h-screen flex items-center pt-24 pb-20 relative"
+      className="min-h-screen flex items-center justify-center relative pt-24 pb-20"
     >
-      <div className="max-w-7xl mx-auto px-6 w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-          {/* Left */}
-          <div>
+      <div className="w-full max-w-[800px] px-6 flex flex-col items-center text-center mx-auto">
+        <div className="flex flex-col items-center">
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.45 }}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-teal-500/25 bg-teal-500/8 text-teal-300 text-xs font-mono mb-8"
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-full border border-teal-500/25 bg-teal-500/8 text-teal-300 text-xs font-mono mb-8"
             >
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75" />
@@ -149,7 +148,7 @@ function HeroSection() {
               initial={{ opacity: 0, y: 28, filter: "blur(6px)" }}
               animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
               transition={{ duration: 0.75, delay: 0.08 }}
-              className="text-5xl sm:text-6xl xl:text-7xl font-black text-zinc-100 leading-[1.06] tracking-tight mb-6"
+              className="text-5xl sm:text-6xl xl:text-7xl font-black text-zinc-100 leading-[1.06] tracking-tight mb-6 text-center"
             >
               Master Your
               <br />
@@ -164,7 +163,7 @@ function HeroSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.22 }}
-              className="text-zinc-400 text-lg leading-relaxed mb-10 max-w-md"
+              className="text-zinc-400 text-lg leading-relaxed mb-10 max-w-xl mx-auto text-center"
             >
               Practice with an AI interviewer tailored to your resume. Receive
               detailed insights on your communication, confidence, and technical
@@ -175,35 +174,22 @@ function HeroSection() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.38 }}
-              className="flex flex-col sm:flex-row gap-3 mb-12"
+              className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-12"
             >
               <button
-                onClick={() => navigate("/dashboard")}
+                onClick={() => navigate("/login")}
                 className="px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white font-semibold rounded-xl transition-all duration-150 flex items-center justify-center gap-2 group shadow-lg shadow-teal-900/30"
               >
                 Start Practice Session
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform duration-150" />
               </button>
-              <a
-                href="#about"
+              <button
+                onClick={() => navigate("/how-it-works")}
                 className="px-6 py-3 bg-zinc-900 border border-white/[0.1] hover:bg-zinc-800 text-white font-semibold rounded-xl transition-all duration-150 flex items-center justify-center gap-2"
               >
                 Learn How It Works
-              </a>
+              </button>
             </motion.div>
-          </div>
-
-          {/* Right */}
-          <motion.div
-            initial={{ opacity: 0, x: 40, scale: 0.94 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            transition={{
-              duration: 0.85,
-              delay: 0.28,
-              ease: [0.22, 1, 0.36, 1],
-            }}
-            className="flex justify-center lg:justify-end"
-          ></motion.div>
         </div>
       </div>
     </section>
@@ -543,9 +529,18 @@ function Footer() {
 // ─── Main Export ──────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
   useEffect(() => {
     document.title = "HireFlow | AI Interview Platform";
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const [activeSection, setActiveSection] = useState("hero");
 

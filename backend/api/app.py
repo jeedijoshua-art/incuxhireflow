@@ -23,6 +23,7 @@ for directory in [TRACKER_DIR, INTERVIEW_ENGINE_DIR, RESUME_ANALYZER_DIR]:
 from routes.resume_analyzer import router as resume_analyzer_router
 from routes.interview_engine import router as interview_engine_router
 from routes.expression_tracker import router as expression_tracker_router
+from routes.admin import router as admin_router
 
 app = FastAPI(
     title="HireFlow API",
@@ -32,7 +33,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origin_regex=r"^http://(?:localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(?:1[6-9]|2\d|3[0-1])\.\d+\.\d+):\d+$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -79,6 +81,12 @@ app.include_router(
     interview_engine_router,
     prefix="/interview",
     tags=["Interview Engine"]
+)
+
+app.include_router(
+    admin_router,
+    prefix="/admin",
+    tags=["Admin Dashboard"]
 )
 
 if __name__ == "__main__":

@@ -93,36 +93,11 @@ export default function UserDashboardPage() {
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white dark:bg-[rgba(10,15,25,0.72)] backdrop-blur-md border border-zinc-200 dark:border-[rgba(45,212,191,0.08)] rounded-xl p-6 shadow-sm dark:shadow-[0_0_15px_rgba(45,212,191,0.05)]">
-          <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-4">2. Interview Configuration</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-4">2. Role Selection</h2>
+          <div className="grid grid-cols-1 gap-6">
             <div>
               <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">Target Job Role</label>
               <input type="text" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} placeholder="e.g. Frontend Developer" className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/[0.06] rounded-xl px-4 py-3 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-teal-500/50" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">Experience Level</label>
-              <select className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/[0.06] rounded-xl px-4 py-3 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none">
-                <option>Fresher</option>
-                <option>Junior</option>
-                <option>Mid-Level</option>
-                <option>Senior</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">Interview Difficulty</label>
-              <select className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/[0.06] rounded-xl px-4 py-3 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none">
-                <option>Easy</option>
-                <option>Medium</option>
-                <option>Hard</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">Interview Type</label>
-              <select className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/[0.06] rounded-xl px-4 py-3 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none">
-                <option>Mixed</option>
-                <option>Behavioral</option>
-                <option>Technical</option>
-              </select>
             </div>
           </div>
         </motion.div>
@@ -132,11 +107,11 @@ export default function UserDashboardPage() {
             disabled={!file || !targetRole.trim()}
             onClick={() => {
               if (!file) return;
-              navigate("/interview-preparation", { state: { file, targetRole } });
+              navigate("/resume-analysis", { state: { file, targetRole } });
             }}
             className="px-8 py-4 bg-teal-600 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed hover:bg-teal-500 text-white font-medium rounded-xl transition-colors flex items-center gap-2 shadow-lg shadow-teal-900/20"
           >
-            Start Mock Interview
+            Analyze Resume
             <ArrowRight className="w-4 h-4" />
           </button>
         </motion.div>

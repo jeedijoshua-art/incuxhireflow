@@ -1,11 +1,15 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Users, Activity, CheckCircle, Clock, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { fetchDashboard } from "../utils/adminApi";
 
 export default function AdminDashboardPage() {
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  
   useEffect(() => {
     document.title = "HireFlow | Admin Dashboard";
+    fetchDashboard().then(data => setDashboardData(data)).catch(console.error);
   }, []);
 
   const navigate = useNavigate();
@@ -27,10 +31,10 @@ export default function AdminDashboardPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
         {[
-          { label: "Total Users", value: "2,543", icon: Users, color: "text-teal-400" },
-          { label: "Total Interviews", value: "14,021", icon: Activity, color: "text-violet-400" },
-          { label: "Average Score", value: "76/100", icon: CheckCircle, color: "text-cyan-400" },
-          { label: "Active Sessions", value: "32", icon: Clock, color: "text-emerald-400" },
+          { label: "Total Users", value: dashboardData ? dashboardData.activeUsers.toString() : "0", icon: Users, color: "text-teal-400" },
+          { label: "Total Interviews", value: dashboardData ? dashboardData.completedInterviews.toString() : "0", icon: Activity, color: "text-violet-400" },
+          { label: "Average Score", value: dashboardData ? `${dashboardData.averageScore}/100` : "0/100", icon: CheckCircle, color: "text-cyan-400" },
+          { label: "Active Sessions", value: dashboardData ? dashboardData.activeInterviews.toString() : "0", icon: Clock, color: "text-emerald-400" },
         ].map((stat, i) => (
           <motion.div key={stat.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }} className="p-5 bg-[rgba(10,15,25,0.72)] backdrop-blur-md border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-xl text-left">
             <div className="flex items-center justify-between mb-4">
@@ -46,24 +50,32 @@ export default function AdminDashboardPage() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="bg-[rgba(10,15,25,0.72)] backdrop-blur-md border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-xl p-6">
           <h2 className="text-lg font-bold text-zinc-100 mb-4">Recent Users</h2>
           <div className="space-y-4">
-            {["Alex Rivera", "Sarah Chen", "Michael Scott"].map((user, idx) => (
-              <div key={idx} className="flex justify-between items-center pb-4 border-b border-white/[0.06] last:border-0 last:pb-0">
-                <div className="text-sm font-medium text-zinc-200">{user}</div>
-                <div className="text-xs text-zinc-500">Joined today</div>
-              </div>
-            ))}
+            {dashboardData?.recentUsers && dashboardData.recentUsers.length > 0 ? (
+              dashboardData.recentUsers.map((user: any, idx: number) => (
+                <div key={idx} className="flex justify-between items-center pb-4 border-b border-white/[0.06] last:border-0 last:pb-0">
+                  <div className="text-sm font-medium text-zinc-200">{user.name || user.email || "Unknown User"}</div>
+                  <div className="text-xs text-zinc-500">Joined recently</div>
+                </div>
+              ))
+            ) : (
+              <div className="text-sm text-zinc-500">No recent registrations.</div>
+            )}
           </div>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="bg-[rgba(10,15,25,0.72)] backdrop-blur-md border border-[rgba(45,212,191,0.08)] shadow-[0_0_15px_rgba(45,212,191,0.05)] rounded-xl p-6">
           <h2 className="text-lg font-bold text-zinc-100 mb-4">Recent Interviews</h2>
           <div className="space-y-4">
-            {["Frontend Developer - 89/100", "Product Manager - 92/100", "Data Analyst - 74/100"].map((interview, idx) => (
-              <div key={idx} className="flex justify-between items-center pb-4 border-b border-white/[0.06] last:border-0 last:pb-0">
-                <div className="text-sm font-medium text-zinc-200">{interview}</div>
-                <div className="text-xs text-zinc-500">Completed 2h ago</div>
-              </div>
-            ))}
+            {dashboardData?.recentReports && dashboardData.recentReports.length > 0 ? (
+              dashboardData.recentReports.map((report: any, idx: number) => (
+                <div key={idx} className="flex justify-between items-center pb-4 border-b border-white/[0.06] last:border-0 last:pb-0">
+                  <div className="text-sm font-medium text-zinc-200">{report.role} - {report.score}/100</div>
+                  <div className="text-xs text-zinc-500">Completed recently</div>
+                </div>
+              ))
+            ) : (
+              <div className="text-sm text-zinc-500">No recent interviews.</div>
+            )}
           </div>
         </motion.div>
       </div>

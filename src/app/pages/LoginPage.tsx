@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useGoogleLogin } from "@react-oauth/google";
+import { useAuth } from "../contexts/AuthContext";
 
 const BackgroundParticles = () => {
   const [isClient, setIsClient] = useState(false);
@@ -92,6 +94,8 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  const { login } = useAuth();
+
   const handleLogin = (path: string) => {
     setIsLoading(true);
     setTimeout(() => {
@@ -99,6 +103,38 @@ export default function LoginPage() {
       navigate(path);
     }, 1200);
   };
+
+  const handleGoogleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      try {
+        setIsLoading(true);
+        const userInfo = await fetch(
+          "https://www.googleapis.com/oauth2/v1/userinfo",
+          {
+            headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+          }
+        ).then((res) => res.json());
+
+        login({
+          id: userInfo.id,
+          name: userInfo.name,
+          email: userInfo.email,
+          picture: userInfo.picture,
+        });
+
+        navigate("/dashboard");
+      } catch (error) {
+        console.error("Failed to fetch user info", error);
+        alert("Authentication failed. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    onError: (errorResponse) => {
+      console.error("Login Failed", errorResponse);
+      alert("Login cancelled or failed.");
+    },
+  });
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 relative text-[#FAFAFA]">
@@ -169,7 +205,7 @@ export default function LoginPage() {
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => handleLogin("/dashboard")}
+                    onClick={() => handleGoogleLogin()}
                     disabled={isLoading}
                     className="w-full py-4 px-4 bg-gradient-to-r from-[#0D9488] to-[#06B6D4] hover:from-[#0f766e] hover:to-[#0891b2] text-white font-medium rounded-xl transition-all duration-200 flex items-center justify-center gap-3 shadow-[0_4px_20px_rgba(13,148,136,0.3)] disabled:opacity-70"
                   >

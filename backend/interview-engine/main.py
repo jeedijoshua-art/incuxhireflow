@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from speech_to_text import SpeechToText
-from question_generator import StaticQuestionGenerator
+from question_generator import QuestionGenerator
 from interview_flow import InterviewFlowManager, InterviewSessionState
 
 def run_interview_simulation(resume_text: str, target_role: str, interactive: bool = False, max_questions: int = 10):
@@ -22,7 +22,7 @@ def run_interview_simulation(resume_text: str, target_role: str, interactive: bo
         total_questions=max_questions
     )
     flow = InterviewFlowManager(state)
-    generator = StaticQuestionGenerator()
+    generator = QuestionGenerator()
     stt = SpeechToText()
 
     # 2. Main Interview Loop

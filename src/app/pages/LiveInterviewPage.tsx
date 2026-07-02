@@ -19,7 +19,15 @@ interface TelemetryData {
 export default function LiveInterviewPage() {
   const navigate = useNavigate();
   const [interviewState, setInterviewState] = useState<"listening" | "thinking" | "speaking">("speaking");
-  const [timeLeft, setTimeLeft] = useState(15 * 60);
+  const [sessionConfig] = useState(() => {
+    try {
+      const stored = localStorage.getItem("hireflow_session_config");
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [timeLeft, setTimeLeft] = useState(sessionConfig?.interview?.default_duration_minutes ? sessionConfig.interview.default_duration_minutes * 60 : 15 * 60);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -41,6 +49,16 @@ export default function LiveInterviewPage() {
   const isEndingInterviewRef = useRef(false);
   
   const [transcript, setTranscript] = useState("");
+  const liveTranscriptRef = useRef("");
+  const violationsRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    liveTranscriptRef.current = transcript;
+  }, [transcript]);
+
+  useEffect(() => {
+    violationsRef.current = violations;
+  }, [violations]);
   const [isProcessingSpeech, setIsProcessingSpeech] = useState(false);
   
   // Speech Recognition State
@@ -99,7 +117,7 @@ export default function LiveInterviewPage() {
       setWarningCount(prev => {
         const newCount = prev + 1;
         console.log(`[WARNING_COUNT] ${newCount}`);
-        if (newCount >= 3) {
+        if (newCount >= (sessionConfig?.security?.max_tab_switches ?? 3)) {
           console.log("[INTERVIEW_TERMINATED]");
           handleEndInterview();
         } else {
@@ -190,10 +208,10 @@ export default function LiveInterviewPage() {
     }
 
     const persona = VOICE_PERSONAS.find(p => p.id === personaId);
-    utterance.rate = 0.95;
+    utterance.rate = sessionConfig?.ai_assistant?.speaking_speed || 0.95;
     utterance.volume = 1.0;
     if (persona) {
-      utterance.pitch = persona.pitch;
+      utterance.pitch = sessionConfig?.ai_assistant?.speaking_pitch || persona.pitch;
     }
 
     console.log(`[SPEAKING_QUESTION] ${text}`);
@@ -239,6 +257,7 @@ export default function LiveInterviewPage() {
     
     // Phase 2: Request Fullscreen on mount
     const requestFullscreen = async () => {
+      if (sessionConfig && sessionConfig.security && !sessionConfig.security.require_fullscreen) return;
       try {
         if (document.documentElement.requestFullscreen) {
           await document.documentElement.requestFullscreen();
@@ -261,9 +280,11 @@ export default function LiveInterviewPage() {
     registerInterval(timer as unknown as number);
 
     // Violation Tracking
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("blur", handleBlur);
+    if (!sessionConfig || sessionConfig.security?.require_fullscreen) {
+      document.addEventListener("fullscreenchange", handleFullscreenChange);
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+      window.addEventListener("blur", handleBlur);
+    }
 
     // Fetch First Question (Prevent double fetch in Strict Mode)
     if (!hasFetchedInitialQuestion.current) {
@@ -569,18 +590,35 @@ export default function LiveInterviewPage() {
       const res = await fetch("http://localhost:8000/api/check_face", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: b64 })
+        body: JSON.stringify({ image: b64, session_id: localStorage.getItem("hireflow_session_id") })
       });
       const data = await res.json();
       if (!data.error) {
-        setTelemetry({
+        const currentTelemetry = {
           timestamp: Date.now(),
           faceDetected: data.face_detected,
           emotion: data.emotion,
           confidence: data.confidence_score,
           attention: data.attention_score,
           eyeContact: data.eye_contact ? 100 : 0
-        });
+        };
+        setTelemetry(currentTelemetry);
+
+        // Sync live telemetry with backend for Admin Dashboard
+        const sessionId = localStorage.getItem("hireflow_session_id");
+        if (sessionId) {
+          fetch("http://localhost:8000/interview/telemetry", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              session_id: sessionId,
+              telemetry: currentTelemetry,
+              transcript: liveTranscriptRef.current,
+              warnings: violationsRef.current,
+              latest_frame: b64
+            })
+          }).catch(() => {}); // Ignore errors in background sync
+        }
       }
     } catch (e) {
       // Silently ignore polling errors to not interrupt interview

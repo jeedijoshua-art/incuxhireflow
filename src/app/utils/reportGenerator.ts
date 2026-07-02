@@ -14,7 +14,7 @@ export interface SessionTurn {
   violations?: string[];
 }
 
-export function generatePDFReport(sessionData: SessionTurn[]) {
+export function generatePDFReport(sessionData: SessionTurn[], returnBlob: boolean = false) {
   const doc = new jsPDF();
   let yPos = 20;
 
@@ -495,5 +495,9 @@ export function generatePDFReport(sessionData: SessionTurn[]) {
   doc.text(`${overallScore}/100`, 55, yPos);
 
   addFooter();
-  doc.save("HireFlow_Enterprise_Report.pdf");
+  if (returnBlob) {
+    return doc.output("blob");
+  } else {
+    doc.save("HireFlow_Enterprise_Report.pdf");
+  }
 }

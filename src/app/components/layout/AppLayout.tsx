@@ -1,11 +1,20 @@
-import { Outlet, NavLink } from "react-router-dom";
-import { LayoutDashboard, Zap } from "lucide-react";
+import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { LayoutDashboard, Zap, LogOut } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
 
 const NAV_ITEMS = [
   { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
 ];
 
 export default function AppLayout() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
+
   return (
     <div className="h-screen w-full bg-transparent text-zinc-900 dark:text-zinc-100 flex overflow-hidden">
       {/* Sidebar */}
@@ -37,14 +46,35 @@ export default function AppLayout() {
         </nav>
         
         <div className="p-4 border-t border-zinc-200 dark:border-white/[0.06]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center text-white font-bold">
-              U
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 overflow-hidden">
+              {user?.picture ? (
+                <img
+                  src={user.picture}
+                  alt={user.name}
+                  className="w-10 h-10 rounded-full object-cover shrink-0"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center text-white font-bold shrink-0">
+                  {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
+                </div>
+              )}
+              <div className="overflow-hidden">
+                <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                  {user?.name || "User"}
+                </div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-500 truncate">
+                  {user?.email || "Free Plan"}
+                </div>
+              </div>
             </div>
-            <div>
-              <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Alex Rivera</div>
-              <div className="text-xs text-zinc-500 dark:text-zinc-500">Free Plan</div>
-            </div>
+            <button
+              onClick={handleLogout}
+              className="p-2 text-zinc-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors ml-2 shrink-0"
+              title="Sign Out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>

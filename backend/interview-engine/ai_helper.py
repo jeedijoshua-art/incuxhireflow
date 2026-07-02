@@ -15,7 +15,18 @@ class AIHelper:
     Utility helper to route AI requests to Gemini or Groq dynamically.
     Provides robust fallback handling when API keys or models are not working.
     """
-    def __init__(self):
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(AIHelper, cls).__new__(cls)
+            cls._instance._initialize()
+        return cls._instance
+
+    def _initialize(self):
+        if hasattr(self, 'initialized') and self.initialized:
+            return
+        self.initialized = True
         # Load environment variables from the backend folder
         load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
         
@@ -55,7 +66,7 @@ class AIHelper:
         if self.gemini_available:
             try:
                 model = genai.GenerativeModel(
-                    "gemini-1.5-flash",
+                    "gemini-2.5-flash",
                     system_instruction=system_prompt
                 )
                 response = model.generate_content(
@@ -110,7 +121,7 @@ class AIHelper:
         if self.gemini_available:
             try:
                 model = genai.GenerativeModel(
-                    "gemini-1.5-flash",
+                    "gemini-2.5-flash",
                     system_instruction=system_prompt
                 )
                 response = model.generate_content(prompt)
